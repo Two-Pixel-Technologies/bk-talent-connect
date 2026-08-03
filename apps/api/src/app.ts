@@ -21,6 +21,7 @@ import { healthRouter } from './modules/health/health.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { candidateRouter, taxonomyRouter } from './modules/candidate/candidate.routes.js';
 import { fileRouter } from './modules/file/file.routes.js';
+import { mountStaticSpa } from './middleware/static-spa.js';
 
 export function createApp(): express.Express {
   const app = express();
@@ -53,6 +54,13 @@ export function createApp(): express.Express {
   app.use(express.urlencoded({ extended: false, limit: LIMITS.jsonBodyBytes }));
   app.use(cookieParser());
 
+  // Must precede the routes: the SPA reads this off API responses to detect it
+  // is running a bundle from before the last deploy.
+  app.use((_req, res, next) => {
+    res.setHeader('X-App-Version', env.APP_VERSION);
+    next();
+  });
+
   app.use(loadSession);
   app.use(csrfGuard);
 
@@ -61,6 +69,9 @@ export function createApp(): express.Express {
   app.use('/api', taxonomyRouter);
   app.use('/api/candidate', candidateRouter);
   app.use('/api/files', fileRouter);
+
+  // Mounted after the API routes so /api never falls through to index.html.
+  if (env.SERVE_STATIC) mountStaticSpa(app);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

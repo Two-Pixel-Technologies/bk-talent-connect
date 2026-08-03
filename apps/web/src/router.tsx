@@ -9,6 +9,7 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { RootLayout } from './components/layout/root-layout.js';
 import { ProtectedRoute } from './features/auth/auth-context.js';
+import { LandingPage } from './pages/landing.js';
 import { SystemStatusPage } from './pages/system-status.js';
 import { BuildStatusPage } from './pages/build-status.js';
 import { NotFoundPage } from './pages/not-found.js';
@@ -31,7 +32,8 @@ export const router = createBrowserRouter([
     path: '/',
     element: <RootLayout />,
     children: [
-      { index: true, element: <BuildStatusPage /> },
+      { index: true, element: <LandingPage /> },
+      { path: 'status', element: <BuildStatusPage /> },
       { path: 'system', element: <SystemStatusPage /> },
 
       { path: 'login', element: <LoginPage /> },

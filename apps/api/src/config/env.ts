@@ -36,6 +36,20 @@ const schema = z.object({
   /** Seed credentials for the first admin. Only read by scripts/admin-create.ts. */
   SEED_ADMIN_EMAIL: z.string().email().optional(),
   SEED_ADMIN_PASSWORD: z.string().min(10).optional(),
+
+  /**
+   * Serve the built SPA from this process.
+   *
+   * In production nginx does this and proxies /api here. Enabling it locally
+   * reproduces the thing that actually matters about that arrangement — the SPA
+   * and the API on ONE origin — so cookies, the CSRF Origin check, deep links
+   * and cache headers all behave the way they will on the server.
+   */
+  SERVE_STATIC: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  WEB_DIST_DIR: z.string().default('../web/dist'),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -58,6 +72,7 @@ export const env = {
   databasePath: path.resolve(raw.DATABASE_PATH),
   uploadsDir: path.resolve(raw.UPLOADS_DIR),
   tmpDir: path.resolve(raw.TMP_DIR),
+  webDistDir: path.resolve(raw.WEB_DIST_DIR),
 } as const;
 
 export type Env = typeof env;
