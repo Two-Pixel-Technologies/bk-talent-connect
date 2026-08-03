@@ -15,7 +15,10 @@ import { LIMITS } from '@bktc/shared';
 import { env } from './config/env.js';
 import { httpLoggerOptions } from './lib/logger.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
+import { loadSession } from './middleware/auth.js';
+import { csrfGuard } from './middleware/csrf.js';
 import { healthRouter } from './modules/health/health.routes.js';
+import { authRouter } from './modules/auth/auth.routes.js';
 
 export function createApp(): express.Express {
   const app = express();
@@ -48,7 +51,11 @@ export function createApp(): express.Express {
   app.use(express.urlencoded({ extended: false, limit: LIMITS.jsonBodyBytes }));
   app.use(cookieParser());
 
+  app.use(loadSession);
+  app.use(csrfGuard);
+
   app.use('/api', healthRouter);
+  app.use('/api/auth', authRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
