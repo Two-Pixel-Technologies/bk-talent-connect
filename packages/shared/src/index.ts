@@ -7,3 +7,4 @@ export * from './format.js';
 export * from './api.js';
 export * from './build-status.js';
 export * from './schemas/auth.js';
+export * from './schemas/candidate.js';

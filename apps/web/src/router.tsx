@@ -24,6 +24,7 @@ import {
   EmployerHome,
   AdminHome,
 } from './pages/portal-home.js';
+import { ProfileWizardPage } from './pages/candidate/profile-wizard.js';
 
 export const router = createBrowserRouter([
   {
@@ -52,7 +53,10 @@ export const router = createBrowserRouter([
             <CandidateLayout />
           </ProtectedRoute>
         ),
-        children: [{ index: true, element: <CandidateHome /> }],
+        children: [
+          { index: true, element: <CandidateHome /> },
+          { path: 'profile', element: <ProfileWizardPage /> },
+        ],
       },
       {
         path: 'employer',

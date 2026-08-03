@@ -19,6 +19,8 @@ import { loadSession } from './middleware/auth.js';
 import { csrfGuard } from './middleware/csrf.js';
 import { healthRouter } from './modules/health/health.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
+import { candidateRouter, taxonomyRouter } from './modules/candidate/candidate.routes.js';
+import { fileRouter } from './modules/file/file.routes.js';
 
 export function createApp(): express.Express {
   const app = express();
@@ -56,6 +58,9 @@ export function createApp(): express.Express {
 
   app.use('/api', healthRouter);
   app.use('/api/auth', authRouter);
+  app.use('/api', taxonomyRouter);
+  app.use('/api/candidate', candidateRouter);
+  app.use('/api/files', fileRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

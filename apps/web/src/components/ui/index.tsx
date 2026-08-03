@@ -7,7 +7,14 @@
  * rather than being hand-rolled.
  */
 
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import type {
+  ButtonHTMLAttributes,
+  InputHTMLAttributes,
+  ReactNode,
+  Ref,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from 'react';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
@@ -84,10 +91,16 @@ const CONTROL_BASE =
 export function Input({
   invalid,
   className = '',
+  ref,
   ...props
-}: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
+}: InputHTMLAttributes<HTMLInputElement> & {
+  invalid?: boolean;
+  // React 19 passes ref as a normal prop to function components.
+  ref?: Ref<HTMLInputElement> | undefined;
+}) {
   return (
     <input
+      ref={ref}
       {...props}
       aria-invalid={invalid || undefined}
       aria-describedby={invalid ? `${props.id}-error` : undefined}
