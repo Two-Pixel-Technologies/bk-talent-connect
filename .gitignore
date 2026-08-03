@@ -1,0 +1,37 @@
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# Environment — never commit; production copy lives in shared/ on the droplet
+.env
+.env.*
+!.env.example
+
+# Database — SQLite file plus its WAL sidecars
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Uploads — resumes are personal data, never in the repo
+uploads/
+tmp/
+
+# Backups
+backups/
+*.bak
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Test output
+coverage/
