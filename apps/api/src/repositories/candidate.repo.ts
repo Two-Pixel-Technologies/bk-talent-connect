@@ -19,6 +19,24 @@ export function findById(id: string): Row<CandidateProfileRow> | undefined {
     .get(id) as Row<CandidateProfileRow> | undefined;
 }
 
+/**
+ * Including erased profiles.
+ *
+ * An erasure soft-deletes the candidate row, but the employer's APPLICATION
+ * survives by design — so every employer screen that loads the candidate
+ * behind an application has to cope with the row being a tombstone. Using the
+ * filtered lookup with a non-null assertion produced a 500 *after* the stage
+ * change had already committed: the employer saw "something went wrong" and
+ * had no way to know their action had taken effect.
+ *
+ * The row it returns carries no personal data — erasure overwrote all of it.
+ */
+export function findByIdIncludingDeleted(id: string): Row<CandidateProfileRow> | undefined {
+  return getDb()
+    .prepare('SELECT * FROM candidate_profile WHERE id = ?')
+    .get(id) as Row<CandidateProfileRow> | undefined;
+}
+
 export interface CreateCandidateInput {
   readonly userId: string;
   readonly fullName: string;
@@ -106,12 +124,6 @@ export function setStatus(
   }
 }
 
-export function setApprovedSnapshot(profileId: string, snapshot: string): void {
-  getDb()
-    .prepare('UPDATE candidate_profile SET last_approved_snapshot = ? WHERE id = ?')
-    .run(snapshot, profileId);
-}
-
 // --- Skills ---------------------------------------------------------------
 
 export function listSkillIds(profileId: string): number[] {
@@ -174,12 +186,3 @@ export function replaceExperiences(profileId: string, rows: readonly ExperienceR
   });
 }
 
-export function isApproved(userId: string): boolean {
-  const row = getDb()
-    .prepare(
-      `SELECT 1 AS hit FROM candidate_profile
-       WHERE user_id = ? AND profile_status = 'APPROVED' AND deleted_at IS NULL`,
-    )
-    .get(userId) as { hit: number } | undefined;
-  return row !== undefined;
-}

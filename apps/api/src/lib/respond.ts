@@ -36,10 +36,6 @@ export function sendNoContent(res: Response): void {
   res.status(204).end();
 }
 
-export function sendPage<T extends Serialized>(res: Response, page: Page<T>): void {
-  sendSerialized(res, page as unknown as Serialized);
-}
-
 export function buildPage<T>(items: readonly T[], page: number, pageSize: number, total: number): Page<T> {
   return {
     items,

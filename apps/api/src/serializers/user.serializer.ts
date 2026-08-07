@@ -29,26 +29,3 @@ export function toSelfView(row: Row<UserRow>): SelfUserView {
     createdAt: u.created_at,
   };
 }
-
-export type AdminUserView = {
-  readonly id: string;
-  readonly email: string;
-  readonly role: Role;
-  readonly status: string;
-  readonly mustChangePassword: boolean;
-  readonly lastLoginAt: string | null;
-  readonly createdAt: string;
-};
-
-export function toAdminView(row: Row<UserRow>): AdminUserView {
-  const u = unbrand(row);
-  return {
-    id: u.id,
-    email: u.email,
-    role: u.role as Role,
-    status: u.status,
-    mustChangePassword: u.must_change_password === 1,
-    lastLoginAt: u.last_login_at,
-    createdAt: u.created_at,
-  };
-}

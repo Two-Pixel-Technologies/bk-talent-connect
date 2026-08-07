@@ -7,6 +7,7 @@ import * as userRepo from '../../repositories/user.repo.js';
 import * as sessionRepo from '../../repositories/session.repo.js';
 import * as candidateRepo from '../../repositories/candidate.repo.js';
 import * as employerRepo from '../../repositories/employer.repo.js';
+import * as events from '../notification/notification-events.js';
 import { hashPassword, verifyPassword } from '../../lib/password.js';
 import { conflict, unauthenticated, badRequest } from '../../lib/errors.js';
 import type {
@@ -45,16 +46,21 @@ export async function registerCandidate(
 
   // User row and profile row commit together — a user with no profile would be
   // a permanently broken account with no route to fix it from the UI.
-  const userId = transaction(() => {
+  const { userId, profileId } = transaction(() => {
     const id = userRepo.create({ email: input.email, passwordHash, role: 'CANDIDATE' });
-    candidateRepo.create({
+    const profile = candidateRepo.create({
       userId: id,
       fullName: input.fullName,
       mobile: input.mobile,
       consentVersion: CONSENT_VERSION,
     });
-    return id;
+    return { userId: id, profileId: profile };
   });
+
+  // After the commit: p8 sends the candidate a welcome and alerts the admin
+  // team. Outside the transaction and non-fatal — a missing welcome message is
+  // not a reason to refuse someone an account.
+  events.candidateRegistered(userId, profileId, input.fullName);
 
   const session = sessionRepo.create(userId, meta);
   return { userId, ...session };

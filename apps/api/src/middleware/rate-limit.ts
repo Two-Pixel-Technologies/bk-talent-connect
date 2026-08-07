@@ -48,11 +48,22 @@ function ipKey(req: Request): string {
 }
 
 /** Tight per-account bound: the control that actually stops credential stuffing. */
+/*
+ * Five FAILED attempts, not five attempts.
+ *
+ * `skipSuccessfulRequests` is what makes this a brute-force control rather
+ * than a usage cap. Without it, five correct sign-ins in fifteen minutes locked
+ * the account — which for a shared admin login is a normal morning, and for
+ * any known email address is a free denial-of-service: send five wrong
+ * passwords and the real owner is locked out of their own account for the rest
+ * of the window.
+ */
 export const loginByEmailLimiter = rateLimit({
   ...shared,
   windowMs: 15 * 60 * 1000,
   limit: 5,
   keyGenerator: emailOf,
+  skipSuccessfulRequests: true,
 });
 
 /** Loose per-IP ceiling, sized for CGNAT rather than per-user. */
@@ -61,15 +72,34 @@ export const loginByIpLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
   keyGenerator: ipKey,
+  skipSuccessfulRequests: true,
 });
 
+/*
+ * Registration is per-IP and that is a real trade-off.
+ *
+ * India's mobile networks put large numbers of users behind shared CGNAT
+ * addresses, so ten per hour can in principle catch a genuine cluster — a
+ * college, an office, a plant. It is kept because the alternative for an
+ * unauthenticated create-account endpoint is no limit at all, but the number
+ * is deliberately generous and only failed attempts count towards it.
+ */
 export const registerLimiter = rateLimit({
   ...shared,
   windowMs: 60 * 60 * 1000,
   limit: 10,
   keyGenerator: ipKey,
+  skipSuccessfulRequests: false,
 });
 
+/**
+ * The public contact form's limiter.
+ *
+ * @public Staged for P9. The contact_enquiry table, its repository, the admin
+ * queue and the dashboard badge all exist; only the public form that writes to
+ * them is outstanding. Deliberately kept wired so P9 is a page, not a page
+ * plus a rediscovery of what it needs.
+ */
 export const contactLimiter = rateLimit({
   ...shared,
   windowMs: 60 * 60 * 1000,

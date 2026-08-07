@@ -14,10 +14,20 @@ export const passwordSchema = z
   .min(LIMITS.password.min, `Password must be at least ${LIMITS.password.min} characters.`)
   .max(LIMITS.password.max);
 
+/**
+ * An Indian mobile number: ten digits starting 6-9, optionally +91-prefixed,
+ * with spaces or dashes anywhere.
+ *
+ * The previous pattern accepted any 10-15 characters drawn from digits, plus,
+ * dash and space — so "++++++++++" passed. This is the ONLY channel BK has to
+ * reach a candidate (email is Phase 2), so a number that cannot be dialled is
+ * as bad as no number.
+ */
 export const mobileSchema = z
   .string()
   .trim()
-  .regex(/^[0-9+\-\s]{10,15}$/, 'Enter a valid mobile number.');
+  .transform((v) => v.replace(/[\s-]/g, ''))
+  .refine((v) => /^(?:\+?91)?[6-9]\d{9}$/.test(v), 'Enter a valid 10-digit Indian mobile number.');
 
 export const loginSchema = z.object({
   email: emailSchema,

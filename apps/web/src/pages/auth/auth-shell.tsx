@@ -22,7 +22,7 @@ export function AuthShell({
       </Link>
 
       <div className={`w-full ${wide ? 'max-w-xl' : 'max-w-md'}`}>
-        <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
           <h1 className="text-xl font-semibold text-brand-900">{title}</h1>
           {subtitle && <p className="mt-1 text-sm text-slate-600">{subtitle}</p>}
           <div className="mt-6">{children}</div>

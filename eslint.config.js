@@ -97,6 +97,31 @@ export default tseslint.config(
     },
   },
 
+  // Plain Node scripts: not TypeScript, and they legitimately use the Node
+  // globals that are absent in the browser.
+  {
+    files: ['scripts/**/*.js'],
+    languageOptions: {
+      globals: { console: 'readonly', process: 'readonly' },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+
+  // pm2 reads its config as CommonJS from disk — it is not part of any build,
+  // so it keeps `module.exports` and the Node globals that come with it.
+  {
+    files: ['deploy/**/*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: { module: 'writable', process: 'readonly', require: 'readonly' },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+
   // Tests reach into internals deliberately.
   {
     files: ['apps/api/tests/**/*.ts'],

@@ -36,7 +36,9 @@ export function Button({
     <button
       {...props}
       disabled={props.disabled ?? loading}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed ${BUTTON_STYLES[variant]} ${className}`}
+      // min-h-11 is 44px — the minimum reliable touch target. Without it the
+      // padding alone gives ~42px, which is a measurably worse tap accuracy.
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed ${BUTTON_STYLES[variant]} ${className}`}
     >
       {loading && (
         <span
@@ -85,8 +87,15 @@ export function Field({
   );
 }
 
+/**
+ * text-base (16px) is deliberate: iOS Safari zooms the viewport when focusing
+ * an input smaller than 16px, which throws the user out of the form layout.
+ * sm:text-sm restores the tighter size on pointer devices.
+ *
+ * min-h-11 (44px) meets the minimum touch target size on mobile.
+ */
 const CONTROL_BASE =
-  'w-full rounded-lg border px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:bg-slate-50 disabled:text-slate-500';
+  'w-full min-h-11 rounded-lg border px-3 py-2.5 text-base sm:text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500';
 
 export function Input({
   invalid,
@@ -124,18 +133,38 @@ export function Textarea({
   );
 }
 
+/**
+ * A native <select> renders completely differently on macOS, Windows and
+ * Android — different heights, different arrows, and on macOS a grey inset
+ * background that makes it look disabled next to a text input.
+ *
+ * appearance-none strips the platform styling and an inline SVG chevron
+ * replaces it, so the control matches the text inputs beside it everywhere.
+ * It stays a real <select>, so mobile still gets the native picker wheel and
+ * keyboard behaviour is unchanged.
+ */
 export function Select({
   invalid,
   className = '',
   children,
   ...props
 }: SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean }) {
+  const chevron =
+    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E\")";
+
   return (
     <select
       {...props}
       aria-invalid={invalid || undefined}
       aria-describedby={invalid ? `${props.id}-error` : undefined}
-      className={`${CONTROL_BASE} ${invalid ? 'border-accent-400' : 'border-slate-300'} ${className}`}
+      className={`${CONTROL_BASE} appearance-none bg-white bg-no-repeat pr-10 ${
+        invalid ? 'border-accent-400' : 'border-slate-300'
+      } ${className}`}
+      style={{
+        backgroundImage: chevron,
+        backgroundPosition: 'right 0.65rem center',
+        backgroundSize: '1.25rem 1.25rem',
+      }}
     >
       {children}
     </select>
@@ -170,7 +199,7 @@ export function Alert({
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-xl border border-slate-200 bg-white p-6 shadow-sm ${className}`}>
+    <div className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 ${className}`}>
       {children}
     </div>
   );

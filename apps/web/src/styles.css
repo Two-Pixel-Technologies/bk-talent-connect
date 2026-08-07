@@ -29,16 +29,63 @@
 
 @layer base {
   html {
+    /* Stops iOS enlarging text in landscape. */
     -webkit-text-size-adjust: 100%;
   }
 
   body {
     @apply bg-slate-50 text-slate-900 antialiased;
     font-family: var(--font-sans);
+    /* Nothing should ever scroll the page sideways on a phone. */
+    overflow-x: hidden;
   }
 
   /* Visible focus for keyboard users everywhere, not just where designed. */
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-brand-500;
+  }
+
+  /* Long emails and URLs must wrap rather than push the layout wide. */
+  p,
+  dd,
+  li,
+  h1,
+  h2,
+  h3 {
+    overflow-wrap: break-word;
+  }
+
+  /* Form controls inherit the app font instead of the platform default —
+     Windows otherwise renders selects and inputs in a different typeface. */
+  input,
+  select,
+  textarea,
+  button {
+    font-family: inherit;
+  }
+
+  /* Safari on iOS rounds and shadows inputs unless told not to. */
+  input,
+  textarea,
+  select {
+    @apply appearance-none;
+    border-radius: var(--radius-lg, 0.5rem);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Respects the notch and home indicator on iPhone. */
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 }

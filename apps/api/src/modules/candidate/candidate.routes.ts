@@ -100,7 +100,8 @@ candidateRouter.post('/resume', upload.single('resume'), (req, res) => {
   const previousId = profile.resume_file_id;
   if (previousId && previousId !== fileId) fileRepo.softDelete(previousId);
 
-  service.updateProfile(auth.id, {});
+  // 'resume' is a material field — this re-queues an approved profile.
+  service.updateProfile(auth.id, {}, ['resume']);
 
   const fresh = service.getProfile(auth.id);
   sendSerialized(res, toSelfView(fresh, service.loadRelations(fresh)), 201);
@@ -113,10 +114,19 @@ taxonomyRouter.get('/taxonomy', (_req, res) => {
   const shape = (rows: { slug: string; name: string }[]) =>
     rows.map((r) => ({ slug: r.slug, name: r.name }));
 
+  const cities = taxonomyRepo
+    .listActiveCities()
+    .map((c) => ({ slug: c.slug, name: c.name, state: c.state }));
+
+  // States come from the cities themselves rather than a separate constant, so
+  // the two dropdowns cannot disagree about which states have cities.
+  const states = [...new Set(cities.map((c) => c.state).filter((s): s is string => s !== null))].sort();
+
   sendSerialized(res, {
     sectors: shape(taxonomyRepo.listActive('sector')),
     functions: shape(taxonomyRepo.listActive('functional_area')),
-    cities: shape(taxonomyRepo.listActive('city')),
+    cities,
+    states,
   });
 });
 

@@ -50,6 +50,36 @@ export function create(input: CreateEmployerInput): string {
   return id;
 }
 
+const UPDATABLE_COLUMNS = new Set([
+  'company_name',
+  'sector_id',
+  'locations',
+  'website',
+  'linkedin_url',
+  'hr_contact_name',
+  'hr_contact_phone',
+  'company_intro',
+  'last_approved_snapshot',
+]);
+
+export function updateFields(profileId: string, patch: Record<string, unknown>): void {
+  const entries = Object.entries(patch).filter(([column]) => UPDATABLE_COLUMNS.has(column));
+  if (entries.length === 0) return;
+
+  const assignments = entries.map(([column]) => `${column} = ?`).join(', ');
+  const values = entries.map(([, value]) => value as never);
+
+  getDb()
+    .prepare(`UPDATE employer_profile SET ${assignments}, updated_at = ? WHERE id = ?`)
+    .run(...values, nowIso(), profileId);
+}
+
+export function setStatus(profileId: string, status: string): void {
+  getDb()
+    .prepare('UPDATE employer_profile SET account_status = ?, updated_at = ? WHERE id = ?')
+    .run(status, nowIso(), profileId);
+}
+
 export function isApproved(userId: string): boolean {
   const row = getDb()
     .prepare(

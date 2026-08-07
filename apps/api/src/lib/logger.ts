@@ -40,15 +40,31 @@ const REDACT_PATHS = [
   '*.token_hash',
 ];
 
-export const logger = pino({
-  level: env.LOG_LEVEL,
-  redact: { paths: REDACT_PATHS, censor: '[redacted]' },
-  ...(env.isProduction
-    ? {}
-    : { transport: { target: 'pino/file', options: { destination: 1 } } }),
-});
+/**
+ * Written synchronously when a destination file is configured.
+ *
+ * The privacy suite reads this file back and greps it, so the write has to
+ * have landed by the time the request finishes — a worker-thread transport
+ * would flush whenever it felt like it and the grep would pass on an empty
+ * file.
+ */
+const destination = env.LOG_DESTINATION
+  ? pino.destination({ dest: env.LOG_DESTINATION, sync: true })
+  : undefined;
 
-export function newRequestId(): string {
+export const logger = pino(
+  {
+    level: env.LOG_LEVEL,
+    redact: { paths: REDACT_PATHS, censor: '[redacted]' },
+    ...(env.isProduction || destination
+      ? {}
+      : { transport: { target: 'pino/file', options: { destination: 1 } } }),
+  },
+  destination,
+);
+
+/** Correlates every log line for one request. Internal to this module. */
+function newRequestId(): string {
   return randomUUID();
 }
 

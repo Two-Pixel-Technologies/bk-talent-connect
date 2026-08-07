@@ -22,7 +22,8 @@
 import { Router } from 'express';
 import fs from 'node:fs';
 import * as fileRepo from '../../repositories/file.repo.js';
-import * as candidateRepo from '../../repositories/candidate.repo.js';
+import * as employerRepo from '../../repositories/employer.repo.js';
+import * as applicationRepo from '../../repositories/application.repo.js';
 import { requireAuth, currentUser } from '../../middleware/auth.js';
 import { forbidden, notFound } from '../../lib/errors.js';
 import * as storage from '../../lib/file-storage.js';
@@ -43,11 +44,12 @@ fileRouter.get('/:id', requireAuth, (req, res) => {
   const auth = currentUser(req);
   const id = req.params.id ?? '';
 
-  const file = fileRepo.findById(id);
+  const file = fileRepo.findByIdIncludingSuperseded(id);
   // Same response whether the file is missing or simply not theirs — a 404 here
   // and a 403 there would confirm which ids exist.
   if (!file) throw notFound('File not found.');
 
+  // Deny by default; each branch has to earn access.
   let permitted = false;
 
   if (file.owner_id === auth.id) {
@@ -55,11 +57,17 @@ fileRouter.get('/:id', requireAuth, (req, res) => {
   } else if (auth.role === 'ADMIN') {
     permitted = true;
   } else if (auth.role === 'EMPLOYER') {
-    // D1: resume visibility follows candidate approval, not application stage.
-    // The application-ownership half of this check lands with P5; until job
-    // applications exist there is no relationship that could grant access.
-    const ownerProfile = candidateRepo.findByUserId(file.owner_id);
-    permitted = ownerProfile?.profile_status === 'APPROVED' && false;
+    /**
+     * D1: an employer may open the CV of an APPROVED candidate — but only one
+     * who has an application to a job they own. Both halves matter. The
+     * approval check alone would let any employer read any approved
+     * candidate's CV; the ownership check alone would ignore the client's
+     * decision that approval is the gate.
+     */
+    const employer = employerRepo.findByUserId(auth.id);
+    permitted =
+      employer !== undefined &&
+      applicationRepo.employerMayViewCandidateFiles(employer.id, file.owner_id);
   }
 
   if (!permitted) throw forbidden('You do not have access to that file.');

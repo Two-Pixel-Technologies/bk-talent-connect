@@ -43,7 +43,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    retry: false,
+    /*
+     * Retry transient failures — but never a 4xx.
+     *
+     * `retry: false` meant one dropped request signed the user out of the UI
+     * while their session was perfectly alive: the query threw, `data` became
+     * undefined, and `user` fell through to null. On a train in India that is
+     * a common event, and being bounced to /login mid-form is an unpleasant
+     * way to lose your work. A real 401 is caught above and returned as null,
+     * so anything that reaches here is worth one more attempt.
+     */
+    retry: (failureCount, error) => {
+      const status = (error as { status?: number }).status;
+      if (status && status >= 400 && status < 500) return false;
+      return failureCount < 2;
+    },
     staleTime: 60_000,
   });
 

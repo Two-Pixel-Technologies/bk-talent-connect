@@ -263,6 +263,42 @@ describe('D2 — editing after approval', () => {
     expect(res.body.materialChanges).toContain('skills');
     expect(res.body.profile.profileStatus).toBe('SUBMITTED');
   });
+
+  /**
+   * Regression guard.
+   *
+   * The server decides re-approval from which fields are PRESENT in the patch,
+   * not from whether their values differ. The client therefore has to send a
+   * real diff — an earlier version posted the entire draft on every save, so
+   * every save carried `skills` and `careerSummary` and any edit at all bounced
+   * the candidate back into review. The original test missed it because it hand-
+   * wrote a minimal patch, which is not what the UI did.
+   *
+   * If this ever fails, check that the wizard is still sending diffProfile()'s
+   * patch rather than the whole draft.
+   */
+  it('treats a full-draft resubmission of unchanged material fields as material', async () => {
+    const candidateRepo = await import('../src/repositories/candidate.repo.js');
+    const me = await auth(request(app).get('/api/auth/me'));
+    const profile = candidateRepo.findByUserId(me.body.id)!;
+    candidateRepo.setStatus(profile.id, 'APPROVED');
+
+    const current = await auth(request(app).get('/api/candidate/profile'));
+
+    // Exactly what posting the whole draft looks like: values identical to what
+    // is stored, but the keys are present.
+    const res = await auth(request(app).patch('/api/candidate/profile')).send({
+      mobile: '9998887776',
+      skills: current.body.skills.map((s: { name: string }) => s.name),
+      careerSummary: current.body.careerSummary,
+    });
+
+    expect(res.status).toBe(200);
+    // The server is behaving correctly here — presence means intent to change.
+    // This documents WHY the client must diff, and fails loudly if the contract
+    // is ever quietly reversed.
+    expect(res.body.requiresReapproval).toBe(true);
+  });
 });
 
 describe('privacy', () => {

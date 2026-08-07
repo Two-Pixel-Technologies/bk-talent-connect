@@ -9,7 +9,7 @@ import { nowIso } from '@bktc/shared';
 import type { Role, UserStatus } from '@bktc/shared';
 
 /** Single normalisation point, used by register, login, admin-create and seed. */
-export function normaliseEmail(email: string): string {
+function normaliseEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
@@ -17,6 +17,18 @@ export function findById(id: string): Row<UserRow> | undefined {
   return getDb()
     .prepare('SELECT * FROM user WHERE id = ? AND deleted_at IS NULL')
     .get(id) as Row<UserRow> | undefined;
+}
+
+/**
+ * Including erased and soft-deleted accounts.
+ *
+ * Only for screens that must describe an account that no longer exists — the
+ * erasure queue, which otherwise shows "(unknown)" against every completed
+ * request and leaves BK unable to tell which one they actioned. Never use this
+ * on an authentication or authorisation path.
+ */
+export function findByIdIncludingDeleted(id: string): Row<UserRow> | undefined {
+  return getDb().prepare('SELECT * FROM user WHERE id = ?').get(id) as Row<UserRow> | undefined;
 }
 
 export function findByEmail(email: string): Row<UserRow> | undefined {

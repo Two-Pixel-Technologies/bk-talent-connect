@@ -30,6 +30,16 @@ const schema = z.object({
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 
+  /**
+   * Write logs to this file instead of stdout.
+   *
+   * Production leaves this unset — pm2 owns the log files and rotates them.
+   * It exists so the privacy suite can grep what the real logger actually
+   * emits, with the real redaction configuration, rather than asserting
+   * against a second copy of the redact list that could drift.
+   */
+  LOG_DESTINATION: z.string().optional(),
+
   /** Number of proxy hops to trust. Exactly 1 behind nginx. */
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
 
@@ -75,4 +85,9 @@ export const env = {
   webDistDir: path.resolve(raw.WEB_DIST_DIR),
 } as const;
 
+/**
+ * @public The validated shape of every environment variable the API reads.
+ * Exported as the documentation of that contract; `env` itself is what code
+ * uses, so nothing imports the type directly.
+ */
 export type Env = typeof env;

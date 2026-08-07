@@ -38,6 +38,8 @@ export function loadRelations(profile: Row<CandidateProfileRow>): CandidateRelat
     functionSlug: taxonomyRepo.slugById('functional_area', profile.functional_area_id),
     functionName: taxonomyRepo.nameById('functional_area', profile.functional_area_id),
     hasResume: resume !== undefined,
+    resumeFileId: resume?.id ?? null,
+    resumeFileName: resume?.original_name ?? null,
   };
 }
 
@@ -79,6 +81,15 @@ function computeCompletion(
     experiences: experienceCount >= 1,
     resume: Boolean(profile.resume_file_id),
   };
+
+  // Cross-field consistency counts towards completeness too. Without this the
+  // bar reads 100% while Submit refuses — a full progress bar and a blocking
+  // error that contradict each other.
+  const salaryRangeValid =
+    profile.expected_salary_min == null ||
+    profile.expected_salary_max == null ||
+    profile.expected_salary_max >= profile.expected_salary_min;
+  if (!salaryRangeValid) filled.expectedSalaryMaxLpa = false;
 
   const earned = Object.entries(COMPLETION_WEIGHTS).reduce(
     (sum, [field, weight]) => sum + (filled[field] ? weight : 0),
@@ -138,10 +149,47 @@ export interface UpdateResult {
  * approved candidate could never change their phone number again; with a
  * blanket re-review, updating a phone number would cost them the job list.
  */
-export function updateProfile(userId: string, input: UpdateProfileInput): UpdateResult {
+export function updateProfile(
+  userId: string,
+  input: UpdateProfileInput,
+  /**
+   * Changes that happen outside the patch body — currently just 'resume'.
+   * A replaced CV is listed in MATERIAL_FIELDS and must re-queue the profile:
+   * otherwise a vetted candidate could swap in an entirely different document,
+   * which then reaches employers under D1 with no second look.
+   */
+  extraMaterialFields: readonly string[] = [],
+): UpdateResult {
   const profile = getProfile(userId);
 
-  const touched = Object.keys(input).filter((key) => input[key as keyof UpdateProfileInput] !== undefined);
+  /*
+   * Salary range sanity, checked against what will actually be stored.
+   *
+   * The patch is partial, so a schema-level refine only sees the fields that
+   * happen to be in this request — sending only a new minimum could still
+   * leave min above max. Comparing the incoming value against the stored one
+   * catches every ordering. It used to be caught only at submit, so a profile
+   * could sit for days reading "expecting 50–10 LPA".
+   */
+  const nextMin =
+    input.expectedSalaryMinLpa !== undefined
+      ? lpaToRupees(input.expectedSalaryMinLpa)
+      : profile.expected_salary_min;
+  const nextMax =
+    input.expectedSalaryMaxLpa !== undefined
+      ? lpaToRupees(input.expectedSalaryMaxLpa)
+      : profile.expected_salary_max;
+
+  if (nextMin != null && nextMax != null && nextMax < nextMin) {
+    throw badRequest('Your maximum expectation cannot be below your minimum.', [
+      { path: 'expectedSalaryMaxLpa', message: 'Must be at least your minimum.' },
+    ]);
+  }
+
+  const touched = [
+    ...Object.keys(input).filter((key) => input[key as keyof UpdateProfileInput] !== undefined),
+    ...extraMaterialFields,
+  ];
   const material = materialFieldsIn(touched);
   const wasApproved = profile.profile_status === 'APPROVED';
   const requiresReapproval = wasApproved && material.length > 0;
@@ -226,8 +274,13 @@ export function submitProfile(userId: string): void {
   });
 
   if (!result.success) {
+    // "Not complete" is wrong when every field is filled and one value is
+    // simply inconsistent — say which it is.
+    const onlyInconsistent = result.error.issues.every((i) => i.code === 'custom');
     throw badRequest(
-      'Your profile is not complete yet.',
+      onlyInconsistent
+        ? 'One thing needs fixing before we can review this.'
+        : 'Your profile is not complete yet.',
       result.error.issues.map((issue) => ({
         path: issue.path.join('.'),
         message: issue.message,

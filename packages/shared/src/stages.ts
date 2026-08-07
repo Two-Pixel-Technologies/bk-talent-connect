@@ -124,7 +124,35 @@ export function canTransition(
     return { allowed: false, reason: 'Application is already at that stage.' };
   }
 
-  if (from === 'NOT_SELECTED') {
+  /*
+   * Terminal stages are terminal for everyone.
+   *
+   * JOINED is BK's billing event and OFFER_DECLINED closes the loop on an
+   * offer; neither is a state anyone gets to leave by ordinary means. This
+   * guard exists because the constant did not previously guard anything — it
+   * was declared, documented, and referenced nowhere, while a candidate could
+   * withdraw from JOINED and then re-apply, erasing the record of their own
+   * placement. If a genuine correction is needed it is a data fix with a
+   * reason attached, not a self-service button.
+   */
+  if ((TERMINAL_STAGES as readonly string[]).includes(from)) {
+    return {
+      allowed: false,
+      reason: `This application is closed at ${from} and cannot be changed.`,
+    };
+  }
+
+  /*
+   * A candidate withdrawing follows the table like everything else.
+   *
+   * There was a short-circuit here that allowed withdrawal from ANY stage,
+   * added to stop the NOT_SELECTED branch below answering a withdrawal with
+   * "only an admin can reopen a rejected application". It fixed the message
+   * and broke the rules: combined with the sanctioned WITHDRAWN → APPLIED
+   * re-apply, it gave a two-step escape out of every terminal and rejected
+   * state. The branch below is scoped instead, which was the actual fix.
+   */
+  if (from === 'NOT_SELECTED' && to !== 'WITHDRAWN') {
     if (role !== 'ADMIN') {
       return { allowed: false, reason: 'Only an admin can reopen a rejected application.' };
     }
@@ -178,6 +206,57 @@ export const CANDIDATE_STAGE_LABEL: Record<ApplicationStage, string> = {
   JOINED: 'Decision',
   NOT_SELECTED: 'Decision',
   WITHDRAWN: 'Withdrawn',
+};
+
+/**
+ * What the candidate is actually TOLD at each stage.
+ *
+ * CANDIDATE_STAGE_LABEL exists to position the five contract steps on the
+ * progress bar, so it correctly collapses the last five stages to "Decision".
+ * That is fine for a progress bar and hopeless as a message: it left an offer
+ * and a rejection distinguishable only by the colour of a badge, and only the
+ * rejection had any explanatory copy at all.
+ *
+ * Telling somebody they have a job offer is the most important sentence this
+ * product will ever render. It gets its own words.
+ */
+export interface CandidateStageMessage {
+  readonly headline: string;
+  readonly body: string;
+  readonly tone: 'good' | 'bad' | 'neutral';
+}
+
+export const CANDIDATE_STAGE_MESSAGE: Partial<Record<ApplicationStage, CandidateStageMessage>> = {
+  OFFER_MADE: {
+    headline: 'You have an offer',
+    body: 'The company has made you an offer for this role. Our team will walk you through the details and answer anything you want to ask before you decide.',
+    tone: 'good',
+  },
+  OFFER_ACCEPTED: {
+    headline: 'Offer accepted',
+    body: 'You have accepted this offer. Our team will stay with you through notice period and joining.',
+    tone: 'good',
+  },
+  OFFER_DECLINED: {
+    headline: 'Offer declined',
+    body: 'You turned this one down. We will keep looking for the right fit.',
+    tone: 'neutral',
+  },
+  JOINED: {
+    headline: 'You joined',
+    body: 'Congratulations. Do get in touch if we can help again.',
+    tone: 'good',
+  },
+  NOT_SELECTED: {
+    headline: 'Not taken forward',
+    body: 'This one did not work out. Our team keeps your profile in front of other employers.',
+    tone: 'bad',
+  },
+  /*
+   * INTERVIEW_SCHEDULED is deliberately absent: the tracker renders a full
+   * interview panel for that stage, with the time, place and a confirm
+   * button. A second alert saying the same thing is noise.
+   */
 };
 
 /** The five steps drawn in the candidate's progress timeline, in order. */

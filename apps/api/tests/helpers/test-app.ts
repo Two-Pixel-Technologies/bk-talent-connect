@@ -10,6 +10,8 @@ import type { Express } from 'express';
 export interface TestContext {
   readonly app: Express;
   readonly dir: string;
+  /** Everything the logger has written, when the suite asked for capture. */
+  readLog(): string;
   cleanup(): void;
 }
 
@@ -17,14 +19,30 @@ export interface TestContext {
  * Each suite gets its own SQLite file. env is set before any module that reads
  * it is imported, then modules are loaded dynamically so the config picks it up.
  */
-export async function createTestContext(name: string): Promise<TestContext> {
+export async function createTestContext(
+  name: string,
+  options: { readonly captureLogs?: boolean } = {},
+): Promise<TestContext> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `bktc-${name}-`));
 
   process.env.NODE_ENV = 'test';
   process.env.DATABASE_PATH = path.join(dir, 'test.db');
   process.env.UPLOADS_DIR = path.join(dir, 'uploads');
   process.env.TMP_DIR = path.join(dir, 'tmp');
-  process.env.LOG_LEVEL = 'silent';
+
+  /*
+   * Suites are silent by default so a failing test's output is readable. The
+   * privacy suite turns logging on and points it at a file, because "the logs
+   * do not contain a candidate's salary" is only a real assertion if the logs
+   * actually contain something.
+   */
+  if (options.captureLogs) {
+    process.env.LOG_LEVEL = 'info';
+    process.env.LOG_DESTINATION = path.join(dir, 'app.log');
+  } else {
+    process.env.LOG_LEVEL = 'silent';
+    delete process.env.LOG_DESTINATION;
+  }
   process.env.APP_ORIGIN = 'http://localhost:5173';
   process.env.TRUST_PROXY_HOPS = '0';
 
@@ -40,9 +58,18 @@ export async function createTestContext(name: string): Promise<TestContext> {
   const { getDb } = await import('../../src/db/client.js');
   seed(getDb(), { silent: true });
 
+  const logPath = path.join(dir, 'app.log');
+
   return {
     app: createApp(),
     dir,
+    readLog() {
+      try {
+        return fs.readFileSync(logPath, 'utf8');
+      } catch {
+        return '';
+      }
+    },
     cleanup() {
       closeDatabase();
       fs.rmSync(dir, { recursive: true, force: true });

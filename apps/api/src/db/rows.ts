@@ -31,12 +31,24 @@ export function unbrand<T>(row: Row<T>): T {
 // Lookups
 // ---------------------------------------------------------------------------
 
+/**
+ * @public One row type per table is the invariant this file exists to hold.
+ * `review_status` is a lookup read through joins rather than a repository, so nothing
+ * imports the type — but a schema mirror with gaps in it is not a mirror, and
+ * the parity test's value comes from the set being complete.
+ */
 export type ReviewStatusRow = Row<{
   code: string;
   label: string;
   sort_order: number;
 }>;
 
+/**
+ * @public One row type per table is the invariant this file exists to hold.
+ * `job_status` is a lookup read through joins rather than a repository, so nothing
+ * imports the type — but a schema mirror with gaps in it is not a mirror, and
+ * the parity test's value comes from the set being complete.
+ */
 export type JobStatusRow = Row<{
   code: string;
   label: string;
@@ -44,6 +56,12 @@ export type JobStatusRow = Row<{
   is_public: number;
 }>;
 
+/**
+ * @public One row type per table is the invariant this file exists to hold.
+ * `application_stage` is a lookup read through joins rather than a repository, so nothing
+ * imports the type — but a schema mirror with gaps in it is not a mirror, and
+ * the parity test's value comes from the set being complete.
+ */
 export type ApplicationStageRow = Row<{
   code: string;
   label: string;
@@ -54,6 +72,17 @@ export type TaxonomyRow = Row<{
   id: number;
   slug: string;
   name: string;
+  sort_order: number;
+  is_active: number;
+}>;
+
+/** Cities carry a state so City can be filtered by the selected State. */
+export type CityRow = Row<{
+  id: number;
+  slug: string;
+  name: string;
+  /** NULL for "Other", which is offered in every state. */
+  state: string | null;
   sort_order: number;
   is_active: number;
 }>;
@@ -185,6 +214,158 @@ export type EmployerProfileRow = Row<{
   deleted_at: string | null;
 }>;
 
+export type JobRow = Row<{
+  id: string;
+  employer_profile_id: string;
+  title: string;
+  department: string | null;
+  number_of_positions: number;
+  sector_id: number | null;
+  functional_area_id: number | null;
+  city_id: number | null;
+  state: string | null;
+  work_type: string | null;
+  min_experience: number | null;
+  max_experience: number | null;
+  education_requirement: string | null;
+  description: string | null;
+  target_joining_date: string | null;
+  /** CONFIDENTIAL — admin and the owning employer only. */
+  salary_band_min: number | null;
+  salary_band_max: number | null;
+  status: string;
+  published_at: string | null;
+  closed_at: string | null;
+  reviewed_at: string | null;
+  reviewed_by_id: string | null;
+  review_note: string | null;
+  contact_flags: string | null;
+  last_approved_snapshot: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}>;
+
+export type JobSkillRow = Row<{
+  job_id: string;
+  skill_id: number;
+  requirement: string;
+}>;
+
+export type ApplicationRow = Row<{
+  id: string;
+  job_id: string;
+  candidate_profile_id: string;
+  source: string;
+  stage: string;
+  is_recommended: number;
+  recommended_by_id: string | null;
+  recommended_at: string | null;
+  applied_at: string;
+  last_stage_change_at: string;
+  first_employer_action_at: string | null;
+  employer_last_viewed_at: string | null;
+  outcome_reason_code: string | null;
+  resume_file_id_at_apply: string | null;
+  created_at: string;
+  updated_at: string;
+}>;
+
+export type ApplicationStageEventRow = Row<{
+  id: number;
+  application_id: string;
+  from_stage: string | null;
+  to_stage: string;
+  changed_by_id: string | null;
+  changed_by_role: string;
+  note: string | null;
+  created_at: string;
+}>;
+
+export type InterviewRow = Row<{
+  id: string;
+  application_id: string;
+  scheduled_at: string;
+  duration_minutes: number;
+  mode: string;
+  location_or_link: string;
+  instructions: string | null;
+  status: string;
+  candidate_confirmed_at: string | null;
+  employer_confirmed_at: string | null;
+  superseded_by_id: string | null;
+  created_by_id: string;
+  created_at: string;
+  updated_at: string;
+}>;
+
+export type InterviewRequestRow = Row<{
+  id: string;
+  application_id: string;
+  requested_by_id: string;
+  preferred_slots: string | null;
+  note: string | null;
+  status: string;
+  resolved_at: string | null;
+  created_at: string;
+}>;
+
+export type AdminNoteRow = Row<{
+  id: string;
+  author_id: string;
+  entity_type: string;
+  entity_id: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}>;
+
+export type NotificationRow = Row<{
+  id: string;
+  user_id: string;
+  event: string;
+  title: string;
+  body: string | null;
+  entity_type: string | null;
+  entity_id: string | null;
+  read_at: string | null;
+  created_at: string;
+}>;
+
+export type ErasureRequestRow = Row<{
+  id: string;
+  user_id: string;
+  reason: string | null;
+  status: string;
+  decision_note: string | null;
+  requested_at: string;
+  handled_at: string | null;
+  handled_by_id: string | null;
+}>;
+
+export type AuditLogRow = Row<{
+  id: number;
+  actor_id: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  metadata: string | null;
+  ip_address: string | null;
+  created_at: string;
+}>;
+
+export type ContactEnquiryRow = Row<{
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  enquiry_type: string;
+  message: string;
+  handled_at: string | null;
+  handled_by_id: string | null;
+  created_at: string;
+}>;
+
 // ---------------------------------------------------------------------------
 // Schema-parity manifest
 //
@@ -218,7 +399,7 @@ export const TABLE_COLUMNS: Readonly<Record<string, TableSpec>> = {
     columns: { id: false, slug: true, name: true, sort_order: true, is_active: true },
   },
   city: {
-    columns: { id: false, slug: true, name: true, sort_order: true, is_active: true },
+    columns: { id: false, slug: true, name: true, state: false, sort_order: true, is_active: true },
   },
   skill: {
     columns: { id: false, slug: true, name: true, is_approved: true, created_at: true },
@@ -317,6 +498,164 @@ export const TABLE_COLUMNS: Readonly<Record<string, TableSpec>> = {
       domain_tags: false,
       key_achievement: false,
       sort_order: true,
+    },
+  },
+  job: {
+    columns: {
+      id: true,
+      employer_profile_id: true,
+      title: true,
+      department: false,
+      number_of_positions: true,
+      sector_id: false,
+      functional_area_id: false,
+      city_id: false,
+      state: false,
+      work_type: false,
+      min_experience: false,
+      max_experience: false,
+      education_requirement: false,
+      description: false,
+      target_joining_date: false,
+      salary_band_min: false,
+      salary_band_max: false,
+      status: true,
+      published_at: false,
+      closed_at: false,
+      reviewed_at: false,
+      reviewed_by_id: false,
+      review_note: false,
+      contact_flags: false,
+      last_approved_snapshot: false,
+      created_at: true,
+      updated_at: true,
+      deleted_at: false,
+    },
+  },
+  job_skill: {
+    columns: { job_id: true, skill_id: true, requirement: true },
+  },
+  application: {
+    columns: {
+      id: true,
+      job_id: true,
+      candidate_profile_id: true,
+      source: true,
+      stage: true,
+      is_recommended: true,
+      recommended_by_id: false,
+      recommended_at: false,
+      applied_at: true,
+      last_stage_change_at: true,
+      first_employer_action_at: false,
+      employer_last_viewed_at: false,
+      outcome_reason_code: false,
+      resume_file_id_at_apply: false,
+      created_at: true,
+      updated_at: true,
+    },
+  },
+  application_stage_event: {
+    columns: {
+      id: false,
+      application_id: true,
+      from_stage: false,
+      to_stage: true,
+      changed_by_id: false,
+      changed_by_role: true,
+      note: false,
+      created_at: true,
+    },
+  },
+  interview: {
+    columns: {
+      id: true,
+      application_id: true,
+      scheduled_at: true,
+      duration_minutes: true,
+      mode: true,
+      location_or_link: true,
+      instructions: false,
+      status: true,
+      candidate_confirmed_at: false,
+      employer_confirmed_at: false,
+      superseded_by_id: false,
+      created_by_id: true,
+      created_at: true,
+      updated_at: true,
+    },
+  },
+  interview_request: {
+    columns: {
+      id: true,
+      application_id: true,
+      requested_by_id: true,
+      preferred_slots: false,
+      note: false,
+      status: true,
+      resolved_at: false,
+      created_at: true,
+    },
+  },
+  admin_note: {
+    columns: {
+      id: true,
+      author_id: true,
+      entity_type: true,
+      entity_id: true,
+      body: true,
+      created_at: true,
+      updated_at: true,
+    },
+  },
+  audit_log: {
+    columns: {
+      id: false,
+      actor_id: false,
+      action: true,
+      entity_type: true,
+      entity_id: true,
+      metadata: false,
+      ip_address: false,
+      created_at: true,
+    },
+  },
+  notification: {
+    columns: {
+      id: true,
+      user_id: true,
+      event: true,
+      title: true,
+      body: false,
+      entity_type: false,
+      entity_id: false,
+      read_at: false,
+      created_at: true,
+    },
+  },
+  erasure_request: {
+    columns: {
+      id: true,
+      user_id: true,
+      reason: false,
+      status: true,
+      decision_note: false,
+      requested_at: true,
+      handled_at: false,
+      handled_by_id: false,
+    },
+  },
+  contact_enquiry: {
+    columns: {
+      id: true,
+      name: true,
+      email: true,
+      phone: false,
+      enquiry_type: true,
+      message: true,
+      handled_at: false,
+      handled_by_id: false,
+      created_at: true,
     },
   },
   employer_profile: {

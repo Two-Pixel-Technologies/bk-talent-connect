@@ -27,6 +27,10 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(gitSha()),
   },
   server: {
+    // Bind IPv4 explicitly. Vite's default of "localhost" resolves to ::1 on
+    // macOS, and nginx proxies to 127.0.0.1 — so the dev server is reachable
+    // directly but 502s through nginx.
+    host: '127.0.0.1',
     port: 5173,
     proxy: {
       '/api': {

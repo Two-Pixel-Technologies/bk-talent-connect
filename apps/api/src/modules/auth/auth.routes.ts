@@ -2,7 +2,7 @@
  * Auth routes.
  */
 
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import { Router, type Request } from 'express';
 import {
   loginSchema,
   registerCandidateSchema,
@@ -15,35 +15,21 @@ import * as userRepo from '../../repositories/user.repo.js';
 import * as candidateRepo from '../../repositories/candidate.repo.js';
 import * as employerRepo from '../../repositories/employer.repo.js';
 import { toSelfView } from '../../serializers/user.serializer.js';
+import { handle } from '../../lib/handle.js';
 import { sendSerialized, sendNoContent } from '../../lib/respond.js';
-import { SESSION_COOKIE, requireAuth, currentUser } from '../../middleware/auth.js';
+import {
+  SESSION_COOKIE,
+  setSessionCookie,
+  requireAuth,
+  currentUser,
+} from '../../middleware/auth.js';
 import { loginByEmailLimiter, loginByIpLimiter, registerLimiter } from '../../middleware/rate-limit.js';
-import { env } from '../../config/env.js';
 import { unauthenticated } from '../../lib/errors.js';
 
 export const authRouter = Router();
 
-function setSessionCookie(res: Response, token: string, expiresAt: string): void {
-  res.cookie(SESSION_COOKIE, token, {
-    httpOnly: true,
-    // Lax, not Strict: a WhatsApp link into the portal must not land the user
-    // logged-out. CSRF is covered by the Origin + X-Requested-With checks.
-    sameSite: 'lax',
-    secure: env.isProduction,
-    path: '/',
-    expires: new Date(expiresAt),
-  });
-}
-
 function metaOf(req: Request) {
   return { ip: req.ip, userAgent: req.get('user-agent') };
-}
-
-/** Wraps an async handler so a rejection reaches the error middleware. */
-function handle(fn: (req: Request, res: Response) => Promise<void>) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    fn(req, res).catch(next);
-  };
 }
 
 authRouter.post(

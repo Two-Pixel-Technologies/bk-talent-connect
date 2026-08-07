@@ -49,5 +49,3 @@ export const tooLarge = (message = 'That file is too large.') =>
 export const unsupportedMedia = (message = 'That file type is not accepted.') =>
   new AppError('UNSUPPORTED_MEDIA_TYPE', 415, message);
 
-export const rateLimited = (message = 'Too many attempts. Please try again shortly.') =>
-  new AppError('RATE_LIMITED', 429, message);

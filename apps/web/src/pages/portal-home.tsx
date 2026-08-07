@@ -15,12 +15,14 @@ const CANDIDATE_NAV: readonly NavItem[] = [
   { to: '/candidate/profile', label: 'My profile' },
   { to: '/candidate/jobs', label: 'Browse jobs' },
   { to: '/candidate/applications', label: 'Applications' },
+  { to: '/candidate/privacy', label: 'Your data' },
 ];
 
 const EMPLOYER_NAV: readonly NavItem[] = [
   { to: '/employer', label: 'Overview', end: true },
   { to: '/employer/company', label: 'Company' },
   { to: '/employer/jobs', label: 'Job postings' },
+  { to: '/employer/privacy', label: 'Your data' },
 ];
 
 const ADMIN_NAV: readonly NavItem[] = [
@@ -28,6 +30,13 @@ const ADMIN_NAV: readonly NavItem[] = [
   { to: '/admin/candidates', label: 'Candidates' },
   { to: '/admin/employers', label: 'Employers' },
   { to: '/admin/jobs', label: 'Jobs' },
+  { to: '/admin/pipeline', label: 'Pipeline' },
+  { to: '/admin/coordination', label: 'Interviews' },
+  // Housekeeping, so it sits after the daily work rather than in front of it.
+  { to: '/admin/skills', label: 'Skills' },
+  { to: '/admin/taxonomy', label: 'Taxonomy' },
+  { to: '/admin/enquiries', label: 'Enquiries' },
+  { to: '/admin/erasure', label: 'Erasure' },
 ];
 
 export const CandidateLayout = () => <PortalLayout title="Candidate" nav={CANDIDATE_NAV} />;
@@ -136,17 +145,6 @@ export function EmployerHome() {
           Your salary band is confidential and is never shown to candidates.
         </p>
       </Card>
-    </div>
-  );
-}
-
-export function AdminHome() {
-  return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-brand-900">Admin overview</h1>
-      <Alert tone="info" title="Review queues arrive in P4">
-        Approvals for candidate profiles, employer accounts and job postings, plus platform stats.
-      </Alert>
     </div>
   );
 }

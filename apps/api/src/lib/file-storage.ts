@@ -27,7 +27,7 @@ import { createHash } from 'node:crypto';
 import { env } from '../config/env.js';
 import { unsupportedMedia } from './errors.js';
 
-export type VerifiedFileType = { readonly mime: string; readonly extension: string };
+type VerifiedFileType = { readonly mime: string; readonly extension: string };
 
 /** Container signatures we accept. Checked against real bytes. */
 const SIGNATURES: readonly {
@@ -51,7 +51,7 @@ const SIGNATURES: readonly {
   },
 ];
 
-export function detectFileType(buffer: Buffer): VerifiedFileType | null {
+function detectFileType(buffer: Buffer): VerifiedFileType | null {
   for (const signature of SIGNATURES) {
     if (buffer.length < signature.bytes.length) continue;
     const matches = signature.bytes.every((byte, index) => buffer[index] === byte);
@@ -60,12 +60,12 @@ export function detectFileType(buffer: Buffer): VerifiedFileType | null {
   return null;
 }
 
-export function ensureDirectories(): void {
+function ensureDirectories(): void {
   fs.mkdirSync(env.uploadsDir, { recursive: true });
   fs.mkdirSync(env.tmpDir, { recursive: true });
 }
 
-export function checksumOf(buffer: Buffer): string {
+function checksumOf(buffer: Buffer): string {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
@@ -122,8 +122,9 @@ export function absolutePathOf(storedName: string): string {
   return path.join(env.uploadsDir, path.basename(storedName));
 }
 
-export function exists(storedName: string): boolean {
-  return fs.existsSync(absolutePathOf(storedName));
+/** Where committed uploads live. Used by the retention sweep. */
+export function uploadsDirectory(): string {
+  return env.uploadsDir;
 }
 
 export function remove(storedName: string): void {

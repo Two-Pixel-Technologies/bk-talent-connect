@@ -53,7 +53,10 @@ export type CandidateProfile = {
 export type Taxonomy = {
   sectors: { slug: string; name: string }[];
   functions: { slug: string; name: string }[];
-  cities: { slug: string; name: string }[];
+  /** state is null for "Other", which is offered in every state. */
+  cities: { slug: string; name: string; state: string | null }[];
+  /** Derived server-side from the cities, so the two lists cannot disagree. */
+  states: string[];
 };
 
 type UpdateResponse = {

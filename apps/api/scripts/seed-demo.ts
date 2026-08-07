@@ -19,7 +19,70 @@ import * as employerRepo from '../src/repositories/employer.repo.js';
 import * as taxonomyRepo from '../src/repositories/taxonomy.repo.js';
 import { hashPassword } from '../src/lib/password.js';
 import { env } from '../src/config/env.js';
+import * as jobRepo from '../src/repositories/job.repo.js';
+import * as applicationRepo from '../src/repositories/application.repo.js';
+import * as events from '../src/modules/notification/notification-events.js';
 import { lpaToRupees, nowIso } from '@bktc/shared';
+
+const JOBS = [
+  {
+    title: 'Senior Process Engineer',
+    department: 'Production',
+    positions: 2,
+    sector: 'pharmaceuticals-life-sciences',
+    fn: 'process-engineering',
+    city: 'pune',
+    state: 'Maharashtra',
+    workType: 'ONSITE',
+    minExp: 5,
+    maxExp: 10,
+    education: 'BTECH',
+    bandMin: 20,
+    bandMax: 28,
+    status: 'APPROVED',
+    skills: ['HAZOP', 'Process Safety', 'GMP', 'Scale-up'],
+    description:
+      'You will own scale-up and process safety for our API block in Pune. That means leading HAZOP studies, owning the process design basis for products moving from pilot to commercial scale, and working alongside QA and regulatory on documentation for regulated markets. The role reports to the Head of Manufacturing and has two direct reports. We run a modern plant with DCS control throughout and have invested heavily in automation over the last three years. You will be involved from the earliest technology transfer discussions through to commercial production, so this is genuine ownership rather than executing someone else plan. We are looking for someone comfortable presenting to auditors and driving cross-functional projects to completion without close supervision, who enjoys solving problems on the shop floor as much as at a desk.',
+  },
+  {
+    title: 'Maintenance Engineer — Rotating Equipment',
+    department: 'Maintenance',
+    positions: 1,
+    sector: 'industrial-machinery-equipment',
+    fn: 'maintenance-reliability',
+    city: 'coimbatore',
+    state: 'Tamil Nadu',
+    workType: 'ONSITE',
+    minExp: 3,
+    maxExp: 7,
+    education: 'DIPLOMA',
+    bandMin: 8,
+    bandMax: 13,
+    status: 'APPROVED',
+    skills: ['Preventive Maintenance', 'Hydraulics', 'Root Cause Analysis'],
+    description:
+      'We are looking for a maintenance engineer to take ownership of rotating equipment across our Coimbatore works — pumps, gearboxes, compressors and the associated drive trains. You will run the planned maintenance schedule, lead breakdown response, and build out the condition monitoring programme we started last year. Roughly forty percent of the role is hands-on and the rest is planning, spares management and working with the production team on availability. We would like someone who is not satisfied with fixing the same failure twice and who will push root cause work through to a permanent fix. There is a clear route into a reliability lead position for the right person, and we support external certification.',
+  },
+  {
+    title: 'Design Engineer — Sheet Metal',
+    department: 'Design',
+    positions: 3,
+    sector: 'automobile-auto-components',
+    fn: 'design-drafting',
+    city: 'chakan',
+    state: 'Maharashtra',
+    workType: 'ONSITE',
+    minExp: 2,
+    maxExp: 6,
+    education: 'BE',
+    bandMin: 6,
+    bandMax: 11,
+    status: 'PENDING_APPROVAL',
+    skills: ['SolidWorks', 'GD&T', 'Sheet Metal Design'],
+    description:
+      'Join our design team at Chakan working on sheet metal assemblies for commercial vehicle customers. You will take designs from concept through to production drawings, run tolerance stack-ups, and work directly with our tool room on manufacturability before anything is committed to tooling. Most of our work is build-to-print with increasing design responsibility as customers involve us earlier, so there is real scope to influence the product rather than just document it. We use SolidWorks throughout and have recently moved to a managed PDM setup. Ideal candidates have spent time on a shop floor and understand what is genuinely manufacturable rather than only what passes an FEA run.',
+  },
+];
 
 const PASSWORD = 'demo-password-1';
 
@@ -296,6 +359,124 @@ async function main(): Promise<void> {
       nowIso(),
       profileId,
     );
+  }
+
+  // --- Jobs -----------------------------------------------------------------
+  const kirloskar = db
+    .prepare("SELECT id FROM employer_profile WHERE company_name = 'Kirloskar Systems'")
+    .get() as { id: string } | undefined;
+
+  if (kirloskar) {
+    const existing = db
+      .prepare('SELECT count(*) AS n FROM job WHERE employer_profile_id = ?')
+      .get(kirloskar.id) as { n: number };
+
+    if (existing.n === 0) {
+      for (const j of JOBS) {
+        const jobId = jobRepo.create(kirloskar.id, j.title);
+        jobRepo.updateFields(jobId, {
+          department: j.department,
+          number_of_positions: j.positions,
+          sector_id: taxonomyRepo.idBySlug('sector', j.sector),
+          functional_area_id: taxonomyRepo.idBySlug('functional_area', j.fn),
+          city_id: taxonomyRepo.idBySlug('city', j.city),
+          state: j.state,
+          work_type: j.workType,
+          min_experience: j.minExp,
+          max_experience: j.maxExp,
+          education_requirement: j.education,
+          description: j.description,
+          salary_band_min: lpaToRupees(j.bandMin),
+          salary_band_max: lpaToRupees(j.bandMax),
+        });
+        jobRepo.replaceSkills(jobId, 'REQUIRED', j.skills.map((s) => taxonomyRepo.resolveSkillId(s)));
+        if (j.status !== 'DRAFT') {
+          jobRepo.setStatus(jobId, j.status, ['DRAFT'], {
+            publishedAt: j.status === 'APPROVED' ? nowIso() : null,
+          });
+        }
+      }
+    }
+  }
+
+  // --- Applications ---------------------------------------------------------
+  // A pipeline in several states, so the employer list and the candidate
+  // tracker both have something real to show.
+  const liveJobs = db
+    .prepare("SELECT id, title FROM job WHERE status = 'APPROVED' ORDER BY created_at")
+    .all() as { id: string; title: string }[];
+
+  const approvedCandidates = db
+    .prepare("SELECT id, full_name, resume_file_id FROM candidate_profile WHERE profile_status = 'APPROVED'")
+    .all() as { id: string; full_name: string; resume_file_id: string | null }[];
+
+  const existingApplications = (
+    db.prepare('SELECT count(*) AS n FROM application').get() as { n: number }
+  ).n;
+
+  if (existingApplications === 0 && liveJobs.length > 0 && approvedCandidates.length > 0) {
+    const stages = ['APPLIED', 'UNDER_REVIEW', 'SHORTLISTED'];
+    approvedCandidates.forEach((candidate, index) => {
+      const job = liveJobs[index % liveJobs.length]!;
+      const applicationId = applicationRepo.create({
+        jobId: job.id,
+        candidateProfileId: candidate.id,
+        source: 'APPLIED',
+        resumeFileId: candidate.resume_file_id,
+      });
+      applicationRepo.recordStageEvent({
+        applicationId,
+        fromStage: null,
+        toStage: 'APPLIED',
+        changedById: null,
+        changedByRole: 'CANDIDATE',
+      });
+
+      // Walk a couple of them along so the pipeline is not all at one stage.
+      const target = stages[index % stages.length]!;
+      let current = 'APPLIED';
+      for (const next of ['UNDER_REVIEW', 'SHORTLISTED']) {
+        if (stages.indexOf(next) > stages.indexOf(target)) break;
+        applicationRepo.setStage(applicationId, next as never, current as never);
+        applicationRepo.recordStageEvent({
+          applicationId,
+          fromStage: current,
+          toStage: next,
+          changedById: null,
+          changedByRole: 'EMPLOYER',
+        });
+        current = next;
+      }
+    });
+  }
+
+  /*
+   * Notifications for the demo.
+   *
+   * The seed writes rows directly rather than going through the services, so
+   * nothing above raises a notification — which leaves BK looking at an empty
+   * bell on the one screen that is supposed to show the portal keeping people
+   * informed. These go through the real events module, so the copy and the
+   * recipients are the same ones production would produce.
+   */
+  const seeded = db
+    .prepare("SELECT id FROM application ORDER BY created_at LIMIT 3")
+    .all() as { id: string }[];
+
+  const existingNotifications = (
+    db.prepare('SELECT count(*) AS n FROM notification').get() as { n: number }
+  ).n;
+
+  if (existingNotifications === 0) {
+    for (const { id } of seeded) events.applicationSubmitted(id);
+    for (const { id } of seeded.slice(0, 2)) {
+      events.stageChanged({
+        applicationId: id,
+        toStage: 'SHORTLISTED',
+        actorId: '',
+        actorRole: 'ADMIN',
+      });
+    }
   }
 
   console.log('\nDemo data ready.\n');

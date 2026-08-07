@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './router.js';
 import { AuthProvider } from './features/auth/auth-context.js';
+import { ErrorBoundary } from './components/error-boundary.js';
 import './styles.css';
 
 const queryClient = new QueryClient({
@@ -27,10 +28,12 @@ if (!container) throw new Error('Root element #root not found');
 
 createRoot(container).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <RouterProvider router={router} />
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );

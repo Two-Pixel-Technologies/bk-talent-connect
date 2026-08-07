@@ -22,7 +22,7 @@ export function LandingPage() {
   return (
     <div className="min-h-screen">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 py-4 sm:px-6">
           <div>
             <p className="text-[10px] font-semibold tracking-widest text-accent-500 uppercase">
               Takai Labs
@@ -31,18 +31,18 @@ export function LandingPage() {
           </div>
           <Link
             to="/login"
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-brand-700 hover:bg-slate-50"
+            className="flex min-h-11 shrink-0 items-center rounded-lg border border-slate-300 px-4 text-sm font-medium text-brand-700 hover:bg-slate-50"
           >
             Sign in
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 py-16">
-        <h1 className="max-w-2xl text-4xl font-bold text-brand-900 sm:text-5xl">
+      <main className="mx-auto max-w-5xl px-5 py-10 sm:px-6 sm:py-16">
+        <h1 className="max-w-2xl text-3xl font-bold text-brand-900 sm:text-4xl lg:text-5xl">
           Technical talent, matched by people who know the work.
         </h1>
-        <p className="mt-4 max-w-xl text-lg text-slate-600">
+        <p className="mt-4 max-w-xl text-base text-slate-600 sm:text-lg">
           A managed recruitment portal for India&rsquo;s industrial sectors — engineering, pharma,
           manufacturing and more. Every profile and every role is reviewed by our team.
         </p>
@@ -64,10 +64,18 @@ export function LandingPage() {
 
         <p className="mt-14 border-t border-slate-200 pt-6 text-sm text-slate-500">
           Public pages (About, For Candidates, For Employers, Contact, Privacy, Terms) and the
-          public jobs listing are scheduled for P9 — the portal is being built first.{' '}
-          <Link to="/status" className="font-medium text-brand-600 hover:underline">
-            See build progress →
-          </Link>
+          public jobs listing are scheduled for P9 — the portal is being built first.
+          {/* Gated exactly like the route it points at. Excluding /status from
+              the production bundle without excluding the link to it left a 404
+              on the public front door. */}
+          {import.meta.env.DEV && (
+            <>
+              {' '}
+              <Link to="/status" className="font-medium text-brand-600 hover:underline">
+                See build progress →
+              </Link>
+            </>
+          )}
         </p>
       </main>
     </div>
@@ -86,19 +94,19 @@ function EntryCard({
   secondary: { to: string; label: string };
 }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-7 shadow-sm">
+    <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
       <h2 className="text-xl font-semibold text-brand-900">{title}</h2>
       <p className="mt-2 text-sm leading-relaxed text-slate-600">{body}</p>
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
           to={primary.to}
-          className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-700"
+          className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-brand-600 px-5 text-sm font-medium text-white hover:bg-brand-700 sm:flex-initial"
         >
           {primary.label}
         </Link>
         <Link
           to={secondary.to}
-          className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-brand-700 hover:bg-slate-50"
+          className="flex min-h-11 flex-1 items-center justify-center rounded-lg border border-slate-300 px-5 text-sm font-medium text-brand-700 hover:bg-slate-50 sm:flex-initial"
         >
           {secondary.label}
         </Link>

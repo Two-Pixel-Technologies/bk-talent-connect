@@ -25,6 +25,34 @@ import path from 'node:path';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 
+/**
+ * CSP for the SPA.
+ *
+ * Different from the API's policy by necessity:
+ *   - connect-src 'self' — the app must be able to call its own API. Without
+ *     it, default-src 'none' blocks every fetch.
+ *   - style-src needs 'unsafe-inline' because Vite injects a style tag.
+ *   - upgrade-insecure-requests is added ONLY under TLS. On a plain-http origin
+ *     it rewrites asset URLs to https, nothing is listening, and the page
+ *     renders blank with no obvious cause.
+ */
+function spaCsp(secure: boolean): string {
+  const directives = [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ];
+  if (secure) directives.push('upgrade-insecure-requests');
+  return directives.join('; ');
+}
+
 export function mountStaticSpa(app: Express): void {
   const distDir = env.webDistDir;
   const indexFile = path.join(distDir, 'index.html');
@@ -49,8 +77,11 @@ export function mountStaticSpa(app: Express): void {
   // Other static files (favicon, robots.txt) — modest caching, no fingerprints.
   app.use(express.static(distDir, { index: false, maxAge: '1h' }));
 
-  app.get(/^(?!\/api).*/, (_req, res) => {
+  app.get(/^(?!\/api).*/, (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
+    // Trust the proxy's scheme when there is one; nginx terminates TLS.
+    const secure = req.secure || req.get('x-forwarded-proto') === 'https';
+    res.setHeader('Content-Security-Policy', spaCsp(secure));
     res.sendFile(indexFile);
   });
 

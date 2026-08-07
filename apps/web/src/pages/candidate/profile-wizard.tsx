@@ -14,7 +14,7 @@
  *     are requested — that message is the whole point of the state.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   EDUCATION_LEVELS,
   EDUCATION_LABELS,
@@ -36,8 +36,11 @@ import {
   useSubmitProfile,
   useUploadResume,
   type CandidateProfile,
+  type Taxonomy,
 } from '../../features/candidate/use-profile.js';
+import { diffProfile, draftFromProfile } from '../../features/candidate/profile-diff.js';
 import { SkillsInput } from '../../components/skills-input.js';
+import { QueryState } from '../../components/query-state.js';
 import { Alert, Badge, Button, Card, Field, Input, Select, Textarea } from '../../components/ui/index.js';
 
 type Draft = UpdateProfileInput;
@@ -48,51 +51,75 @@ const EMPLOYMENT_LABELS: Record<string, string> = {
   BOTH: 'Open to both',
 };
 
+/**
+ * Turns a zod path into something a person recognises.
+ *
+ * Server messages arrive as bare strings — "String must contain at least 2
+ * character(s)" — with the field only in `path`, which the wizard discarded.
+ * Two identical developer sentences with no indication of which field is not
+ * an error message, it is a puzzle.
+ */
+const FIELD_LABELS: Record<string, string> = {
+  fullName: 'Full name',
+  mobile: 'Mobile',
+  citySlug: 'City',
+  state: 'State',
+  currentJobTitle: 'Current job title',
+  currentEmployer: 'Current employer',
+  yearsOfExperience: 'Years of experience',
+  sectorSlug: 'Sector',
+  functionSlug: 'Function',
+  educationLevel: 'Education level',
+  qualification: 'Qualification',
+  qualificationYear: 'Year of qualification',
+  careerSummary: 'Career summary',
+  noticePeriod: 'Notice period',
+  employmentPreference: 'Employment preference',
+  currentSalaryLpa: 'Current salary',
+  expectedSalaryMinLpa: 'Expected salary (minimum)',
+  expectedSalaryMaxLpa: 'Expected salary (maximum)',
+  linkedinUrl: 'LinkedIn',
+  skills: 'Skills',
+  company: 'Company',
+  title: 'Job title',
+  startYear: 'Start year',
+  endYear: 'End year',
+  keyAchievement: 'Key achievement',
+  // Submit-time checks report on counts and presence rather than the field
+  // itself, so these paths only ever appear on the submit error surface.
+  skillCount: 'Skills',
+  experienceCount: 'Career history',
+  hasResume: 'CV',
+  openToRelocation: 'Open to relocation',
+};
+
+function fieldLabel(path: string): string {
+  // Paths look like `experiences.0.company` for repeated rows.
+  const parts = path.split('.');
+  const leaf = parts[parts.length - 1] ?? path;
+  const label = FIELD_LABELS[leaf] ?? leaf;
+
+  if (parts[0] === 'experiences' && parts.length === 3) {
+    return `Role ${Number(parts[1]) + 1} — ${label}: `;
+  }
+  return `${label}: `;
+}
+
 export function ProfileWizardPage() {
-  const { data: profile, isPending } = useProfile();
+  const { data: profile, isPending, error: loadError, refetch } = useProfile();
   const { data: taxonomy } = useTaxonomy();
   const update = useUpdateProfile();
   const submit = useSubmitProfile();
 
   const [stepIndex, setStepIndex] = useState(0);
+  const errorRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<Draft>({});
   const [confirmMaterial, setConfirmMaterial] = useState<string[] | null>(null);
 
-  // Seed the draft once the profile arrives.
+  // Seed the draft once the profile arrives. Keyed on id so a refetch after a
+  // save does not discard edits the candidate is part-way through typing.
   useEffect(() => {
-    if (!profile) return;
-    setDraft({
-      fullName: profile.fullName,
-      mobile: profile.mobile,
-      citySlug: profile.citySlug ?? undefined,
-      state: profile.state ?? undefined,
-      openToRelocation: profile.openToRelocation,
-      currentJobTitle: profile.currentJobTitle ?? undefined,
-      currentEmployer: profile.currentEmployer ?? undefined,
-      yearsOfExperience: profile.yearsOfExperience ?? undefined,
-      sectorSlug: profile.sectorSlug ?? undefined,
-      functionSlug: profile.functionSlug ?? undefined,
-      educationLevel: (profile.educationLevel as Draft['educationLevel']) ?? undefined,
-      qualification: profile.qualification ?? undefined,
-      qualificationYear: profile.qualificationYear ?? undefined,
-      careerSummary: profile.careerSummary ?? undefined,
-      noticePeriod: (profile.noticePeriod as Draft['noticePeriod']) ?? undefined,
-      employmentPreference: (profile.employmentPreference as Draft['employmentPreference']) ?? undefined,
-      currentSalaryLpa: profile.currentSalaryLpa ?? undefined,
-      expectedSalaryMinLpa: profile.expectedSalaryMinLpa ?? undefined,
-      expectedSalaryMaxLpa: profile.expectedSalaryMaxLpa ?? undefined,
-      linkedinUrl: profile.linkedinUrl ?? undefined,
-      skills: profile.skills.map((s) => s.name),
-      experiences: profile.experiences.map((e) => ({
-        company: e.company,
-        title: e.title,
-        startYear: e.startYear,
-        endYear: e.endYear,
-        isCurrent: e.isCurrent,
-        domainTags: e.domainTags,
-        keyAchievement: e.keyAchievement ?? undefined,
-      })),
-    });
+    if (profile) setDraft(draftFromProfile(profile));
   }, [profile?.id]);
 
   const locked = profile?.profileStatus === 'SUBMITTED';
@@ -100,36 +127,30 @@ export function ProfileWizardPage() {
   const step = PROFILE_STEPS[stepIndex]!;
   const error = update.error instanceof ApiError ? update.error : null;
 
-  /** Fields changed relative to what is saved — drives the D2 warning. */
-  const changedFields = useMemo(() => {
-    if (!profile) return [];
-    const changed: string[] = [];
-    if (draft.fullName !== profile.fullName) changed.push('fullName');
-    if (draft.mobile !== profile.mobile) changed.push('mobile');
-    if (draft.citySlug !== (profile.citySlug ?? undefined)) changed.push('citySlug');
-    if (draft.currentJobTitle !== (profile.currentJobTitle ?? undefined)) changed.push('currentJobTitle');
-    if (draft.yearsOfExperience !== (profile.yearsOfExperience ?? undefined)) changed.push('yearsOfExperience');
-    if (draft.sectorSlug !== (profile.sectorSlug ?? undefined)) changed.push('sectorSlug');
-    if (draft.functionSlug !== (profile.functionSlug ?? undefined)) changed.push('functionSlug');
-    if (draft.careerSummary !== (profile.careerSummary ?? undefined)) changed.push('careerSummary');
-    if (draft.currentSalaryLpa !== (profile.currentSalaryLpa ?? undefined)) changed.push('currentSalaryLpa');
-    if (draft.expectedSalaryMinLpa !== (profile.expectedSalaryMinLpa ?? undefined))
-      changed.push('expectedSalaryMinLpa');
-    if (draft.expectedSalaryMaxLpa !== (profile.expectedSalaryMaxLpa ?? undefined))
-      changed.push('expectedSalaryMaxLpa');
-    const draftSkills = (draft.skills ?? []).join('|');
-    const savedSkills = profile.skills.map((s) => s.name).join('|');
-    if (draftSkills !== savedSkills) changed.push('skills');
-    if (JSON.stringify(draft.experiences ?? []) !== JSON.stringify(profile.experiences.map((e) => ({
-      company: e.company, title: e.title, startYear: e.startYear, endYear: e.endYear,
-      isCurrent: e.isCurrent, domainTags: e.domainTags, keyAchievement: e.keyAchievement ?? undefined,
-    })))) changed.push('experiences');
-    return changed;
-  }, [draft, profile]);
+  // Bring the message to the user rather than expecting them to find it.
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [error]);
+
+  /**
+   * Only what actually changed is sent. The server decides re-approval from
+   * which fields are present in the patch, so posting the whole draft would
+   * send an approved candidate back into review for correcting a phone number.
+   */
+  const { patch, changedFields } = useMemo(
+    () => (profile ? diffProfile(draft, profile) : { patch: {}, changedFields: [] }),
+    [draft, profile],
+  );
 
   const materialChanges = changedFields.filter(isMaterialField);
+  const hasChanges = changedFields.length > 0;
 
   async function save(): Promise<boolean> {
+    // Nothing to send — treat as success so "Save and continue" still advances.
+    if (!hasChanges) {
+      setConfirmMaterial(null);
+      return true;
+    }
     // Warn before, not after: going back into review costs job access.
     if (approved && materialChanges.length > 0 && confirmMaterial === null) {
       setConfirmMaterial(materialChanges);
@@ -137,7 +158,7 @@ export function ProfileWizardPage() {
     }
     setConfirmMaterial(null);
     try {
-      await update.mutateAsync(draft);
+      await update.mutateAsync(patch);
       return true;
     } catch {
       return false;
@@ -148,8 +169,24 @@ export function ProfileWizardPage() {
     if (await save()) setStepIndex((i) => Math.min(i + 1, PROFILE_STEPS.length - 1));
   }
 
-  if (isPending || !profile) {
-    return <p className="text-slate-500">Loading your profile…</p>;
+  /*
+   * An errored query is `isPending: false, data: undefined` in TanStack v5, so
+   * `isPending || !profile` swallowed every failure into the loading branch —
+   * an expired session or a dropped connection left a permanent spinner with
+   * no message and no retry. This is a candidate's main screen; on a patchy
+   * mobile connection it was the most likely thing they ever saw.
+   */
+  if (isPending || loadError || !profile) {
+    return (
+      <QueryState
+        isPending={isPending}
+        error={loadError ?? (profile ? null : new Error('Profile unavailable'))}
+        onRetry={() => void refetch()}
+        loadingLabel="Loading your profile…"
+      >
+        <span />
+      </QueryState>
+    );
   }
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
@@ -159,16 +196,16 @@ export function ProfileWizardPage() {
     <div className="space-y-6">
       <StatusBanner profile={profile} />
 
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-brand-900">Your profile</h1>
           <p className="mt-1 text-sm text-slate-600">
             This is what our team reviews, and what employers see once you apply.
           </p>
         </div>
-        <div className="text-right">
+        <div className="sm:text-right">
           <p className="text-sm font-medium text-slate-700">{profile.completionPercent}% complete</p>
-          <div className="mt-1.5 h-2 w-40 overflow-hidden rounded-full bg-slate-200">
+          <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-200 sm:w-40">
             <div
               className="h-full rounded-full bg-brand-600 transition-all"
               style={{ width: `${profile.completionPercent}%` }}
@@ -179,16 +216,28 @@ export function ProfileWizardPage() {
 
       <Stepper current={stepIndex} onSelect={setStepIndex} />
 
+      {/*
+        * Scrolled into view and focused.
+        *
+        * The alert renders above the form, so on a phone at the bottom of step
+        * 3 pressing "Save and continue" produced no visible change at all —
+        * next() returned false and the message was a screen and a half up.
+        */}
       {error && (
+        <div ref={errorRef}>
         <Alert tone="error" title={error.message}>
           {error.fields.length > 0 && (
             <ul className="mt-1 list-inside list-disc">
               {error.fields.map((f) => (
-                <li key={f.path}>{f.message}</li>
+                <li key={f.path}>
+                  <span className="font-medium">{fieldLabel(f.path)}</span>
+                  {f.message}
+                </li>
               ))}
             </ul>
           )}
         </Alert>
+        </div>
       )}
 
       {confirmMaterial && (
@@ -228,7 +277,7 @@ export function ProfileWizardPage() {
           {step.id === 'salary' && <SalaryStep draft={draft} set={set} profile={profile} />}
         </fieldset>
 
-        <div className="mt-8 flex items-center justify-between border-t border-slate-100 pt-5">
+        <div className="mt-8 flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
           <Button
             variant="ghost"
             disabled={stepIndex === 0}
@@ -237,7 +286,7 @@ export function ProfileWizardPage() {
             ← Back
           </Button>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             {!locked && (
               <Button variant="secondary" onClick={() => void save()} loading={update.isPending}>
                 Save
@@ -266,9 +315,15 @@ export function ProfileWizardPage() {
         {submit.error instanceof ApiError && (
           <div className="mt-4">
             <Alert tone="error" title={submit.error.message}>
+              {/* Same labelling as the save errors above. Without it, submitting
+                  an empty profile produced a list of bare "Required" bullets
+                  with no indication of which of five steps each belonged to. */}
               <ul className="mt-1 list-inside list-disc">
                 {submit.error.fields.map((f) => (
-                  <li key={f.path}>{f.message}</li>
+                  <li key={f.path}>
+                    <span className="font-medium">{fieldLabel(f.path)}</span>
+                    {f.message}
+                  </li>
                 ))}
               </ul>
             </Alert>
@@ -313,7 +368,7 @@ function StatusBanner({ profile }: { profile: CandidateProfile }) {
 function Stepper({ current, onSelect }: { current: number; onSelect: (i: number) => void }) {
   return (
     <nav aria-label="Profile steps">
-      <ol className="flex flex-wrap gap-2">
+      <ol className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
         {PROFILE_STEPS.map((step, index) => {
           const active = index === current;
           return (
@@ -322,7 +377,7 @@ function Stepper({ current, onSelect }: { current: number; onSelect: (i: number)
                 type="button"
                 onClick={() => onSelect(index)}
                 aria-current={active ? 'step' : undefined}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`min-h-11 shrink-0 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
                   active ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'
                 }`}
               >
@@ -340,40 +395,81 @@ function Stepper({ current, onSelect }: { current: number; onSelect: (i: number)
 type StepProps = {
   draft: Draft;
   set: <K extends keyof Draft>(key: K, value: Draft[K]) => void;
-  taxonomy?: { sectors: { slug: string; name: string }[]; functions: { slug: string; name: string }[]; cities: { slug: string; name: string }[] } | undefined;
+  taxonomy?: Taxonomy | undefined;
   locked?: boolean;
   profile?: CandidateProfile;
 };
 
 function BasicStep({ draft, set, taxonomy }: StepProps) {
+  const selectedState = draft.state ?? '';
+
+  // Cities are filtered by the chosen state. "Other" carries no state and is
+  // offered everywhere, because no list covers industrial India exhaustively.
+  const citiesForState = (taxonomy?.cities ?? []).filter(
+    (c) => c.state === selectedState || c.state === null,
+  );
+
+  /**
+   * Changing the state clears a city that no longer belongs to it. Leaving the
+   * old value would let someone save "Pune, Kerala" — which is what happens
+   * today and is exactly the bug this fixes.
+   */
+  function onStateChange(nextState: string) {
+    set('state', nextState);
+    const stillValid = (taxonomy?.cities ?? []).some(
+      (c) => c.slug === draft.citySlug && (c.state === nextState || c.state === null),
+    );
+    if (!stillValid) set('citySlug', '');
+  }
+
   return (
     <>
       <Field label="Full name" htmlFor="fullName" required>
         <Input id="fullName" value={draft.fullName ?? ''} onChange={(e) => set('fullName', e.target.value)} />
       </Field>
 
+      <Field label="Mobile number" htmlFor="mobile" required>
+        <Input
+          id="mobile"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          value={draft.mobile ?? ''}
+          onChange={(e) => set('mobile', e.target.value)}
+        />
+      </Field>
+
+      {/* State first: it narrows the city list, so asking for it first is the
+          order the form actually works in. */}
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Mobile number" htmlFor="mobile" required>
-          <Input id="mobile" type="tel" value={draft.mobile ?? ''} onChange={(e) => set('mobile', e.target.value)} />
+        <Field label="State" htmlFor="state" required>
+          <Select id="state" value={selectedState} onChange={(e) => onStateChange(e.target.value)}>
+            <option value="">Select a state</option>
+            {(taxonomy?.states ?? INDIAN_STATES).map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </Select>
         </Field>
-        <Field label="City" htmlFor="citySlug" required>
-          <Select id="citySlug" value={draft.citySlug ?? ''} onChange={(e) => set('citySlug', e.target.value)}>
-            <option value="">Select a city</option>
-            {taxonomy?.cities.map((c) => (
+
+        <Field
+          label="City"
+          htmlFor="citySlug"
+          required
+          hint={selectedState ? undefined : 'Choose a state first'}
+        >
+          <Select
+            id="citySlug"
+            value={draft.citySlug ?? ''}
+            disabled={!selectedState}
+            onChange={(e) => set('citySlug', e.target.value)}
+          >
+            <option value="">{selectedState ? 'Select a city' : '—'}</option>
+            {citiesForState.map((c) => (
               <option key={c.slug} value={c.slug}>{c.name}</option>
             ))}
           </Select>
         </Field>
       </div>
-
-      <Field label="State" htmlFor="state" required>
-        <Select id="state" value={draft.state ?? ''} onChange={(e) => set('state', e.target.value)}>
-          <option value="">Select a state</option>
-          {INDIAN_STATES.map((s) => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </Select>
-      </Field>
 
       <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
         <input
@@ -405,7 +501,7 @@ function ProfessionalStep({ draft, set, taxonomy, locked }: StepProps) {
         </Field>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="Years of experience" htmlFor="yearsOfExperience" required>
           <Input
             id="yearsOfExperience"
@@ -435,7 +531,7 @@ function ProfessionalStep({ draft, set, taxonomy, locked }: StepProps) {
         </Field>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="Education level" htmlFor="educationLevel" required>
           <Select id="educationLevel" value={draft.educationLevel ?? ''} onChange={(e) => set('educationLevel', e.target.value as Draft['educationLevel'])}>
             <option value="">Select</option>
@@ -506,7 +602,7 @@ function HistoryStep({ draft, set }: StepProps) {
             </Field>
           </div>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="From (year)" htmlFor={`start-${index}`} required>
               <Input id={`start-${index}`} type="number" min={1960} value={exp.startYear} onChange={(e) => update(index, { startYear: Number(e.target.value) })} />
             </Field>
@@ -520,7 +616,7 @@ function HistoryStep({ draft, set }: StepProps) {
                 onChange={(e) => update(index, { endYear: e.target.value === '' ? null : Number(e.target.value) })}
               />
             </Field>
-            <label className="flex items-center gap-2 self-end pb-2.5 text-sm text-slate-700">
+            <label className="flex min-h-11 items-center gap-2.5 text-sm text-slate-700 sm:self-end sm:pb-2.5">
               <input
                 type="checkbox"
                 checked={exp.isCurrent}
@@ -534,6 +630,35 @@ function HistoryStep({ draft, set }: StepProps) {
           <div className="mt-4">
             <Field label="Key achievement" htmlFor={`ach-${index}`} hint="One line. Numbers help.">
               <Input id={`ach-${index}`} value={exp.keyAchievement ?? ''} onChange={(e) => update(index, { keyAchievement: e.target.value })} />
+            </Field>
+          </div>
+
+          {/*
+            * Domain tags — the proposal's career-history row specifies
+            * "Company · title · years · domain tags". The column, the repo,
+            * the serializer and the schema all carried it and the form
+            * hardcoded an empty array, so every candidate row would have had
+            * an empty list forever.
+            */}
+          <div className="mt-4">
+            <Field
+              label="What did you work on?"
+              htmlFor={`domains-${index}`}
+              hint="Comma-separated — e.g. rotating equipment, HAZOP, tech transfer"
+            >
+              <Input
+                id={`domains-${index}`}
+                value={(exp.domainTags ?? []).join(', ')}
+                onChange={(e) =>
+                  update(index, {
+                    domainTags: e.target.value
+                      .split(',')
+                      .map((t) => t.trim())
+                      .filter(Boolean)
+                      .slice(0, 10),
+                  })
+                }
+              />
             </Field>
           </div>
 
@@ -620,7 +745,7 @@ function SalaryStep({ draft, set, profile }: StepProps) {
         never appear on any job application.
       </Alert>
 
-      <div className="grid gap-5 sm:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <SalaryField label="Current CTC" id="currentSalaryLpa" value={draft.currentSalaryLpa} onChange={(v) => set('currentSalaryLpa', v)} />
         <SalaryField label="Expected minimum" id="expectedSalaryMinLpa" value={draft.expectedSalaryMinLpa} onChange={(v) => set('expectedSalaryMinLpa', v)} />
         <SalaryField label="Expected maximum" id="expectedSalaryMaxLpa" value={draft.expectedSalaryMaxLpa} onChange={(v) => set('expectedSalaryMaxLpa', v)} />

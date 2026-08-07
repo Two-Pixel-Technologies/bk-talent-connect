@@ -1,0 +1,49 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    "apps/api": {
+      "entry": [
+        "src/index.ts",
+        "scripts/*.ts",
+        "tests/**/*.test.ts"
+      ],
+      "project": [
+        "src/**/*.ts",
+        "scripts/**/*.ts"
+      ]
+    },
+    "apps/web": {
+      "entry": [
+        "src/main.tsx"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}"
+      ]
+    },
+    "packages/shared": {
+      "entry": [
+        "src/index.ts"
+      ],
+      "project": [
+        "src/**/*.ts"
+      ]
+    }
+  },
+  "ignore": [
+    "deploy/**"
+  ],
+  "ignoreDependencies": [
+    "jsdom",
+    "tailwindcss"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "rules": {
+    "files": "error",
+    "dependencies": "error",
+    "unlisted": "error",
+    "exports": "error",
+    "types": "error",
+    "duplicates": "error"
+  },
+  "exclude": []
+}

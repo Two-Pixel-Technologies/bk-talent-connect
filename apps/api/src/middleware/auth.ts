@@ -2,11 +2,12 @@
  * Authentication and authorisation middleware.
  */
 
-import type { Request, RequestHandler } from 'express';
+import type { Request, RequestHandler, Response } from 'express';
 import type { Role } from '@bktc/shared';
 import * as sessionRepo from '../repositories/session.repo.js';
 import * as userRepo from '../repositories/user.repo.js';
 import { forbidden, unauthenticated } from '../lib/errors.js';
+import { env } from '../config/env.js';
 
 export const SESSION_COOKIE = 'bktc_session';
 
@@ -35,7 +36,26 @@ const PASSWORD_CHANGE_EXEMPT = new Set([
  * Populates req.user when a valid session cookie is present. Does not reject —
  * requireAuth does that — so optional-auth routes can use the same lookup.
  */
-export const loadSession: RequestHandler = (req, _res, next) => {
+/**
+ * Writes the session cookie.
+ *
+ * Lives here rather than in auth.routes because two callers need it: login,
+ * and the sliding-expiry refresh below. A cookie whose `Expires` is only ever
+ * written at login cannot slide, whatever the database row says.
+ */
+export function setSessionCookie(res: Response, token: string, expiresAt: string): void {
+  res.cookie(SESSION_COOKIE, token, {
+    httpOnly: true,
+    // Lax, not Strict: a WhatsApp link into the portal must not land the user
+    // logged-out. CSRF is covered by the Origin + X-Requested-With checks.
+    sameSite: 'lax',
+    secure: env.isProduction,
+    path: '/',
+    expires: new Date(expiresAt),
+  });
+}
+
+export const loadSession: RequestHandler = (req, res, next) => {
   const token = (req.cookies as Record<string, string> | undefined)?.[SESSION_COOKIE];
   if (!token) return next();
 
@@ -46,6 +66,12 @@ export const loadSession: RequestHandler = (req, _res, next) => {
   // A suspended user's existing session stops working on its next request
   // rather than lasting until expiry.
   if (!user || user.status !== 'ACTIVE') return next();
+
+  // Sliding expiry, as documented on LIMITS.session.lifetimeMs. Throttled
+  // inside touchExpiry so this is neither a write nor a Set-Cookie on every
+  // request — only when the expiry has actually moved by more than an hour.
+  const extendedTo = sessionRepo.touchExpiry(session);
+  if (extendedTo) setSessionCookie(res, token, extendedTo);
 
   req.user = {
     id: user.id,

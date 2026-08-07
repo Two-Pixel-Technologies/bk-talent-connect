@@ -12,11 +12,11 @@ import type { SessionRow, Row } from '../db/rows.js';
 import { newId } from '../lib/ids.js';
 import { nowIso, LIMITS } from '@bktc/shared';
 
-export function generateToken(): string {
+function generateToken(): string {
   return randomBytes(32).toString('base64url');
 }
 
-export function hashToken(token: string): string {
+function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
@@ -46,6 +46,38 @@ export function findValidByToken(token: string): Row<SessionRow> | undefined {
   return getDb()
     .prepare('SELECT * FROM session WHERE token_hash = ? AND expires_at > ?')
     .get(hashToken(token), nowIso()) as Row<SessionRow> | undefined;
+}
+
+/**
+ * Pushes the expiry back out on activity.
+ *
+ * LIMITS.session.lifetimeMs is documented as "sliding expiry, refreshed on
+ * activity" and was not: expires_at was written once at creation and never
+ * touched, so every user was hard-logged-out exactly 30 days after signing in
+ * regardless of how much they had used the portal in between.
+ *
+ * Only written when it has moved by more than an hour. Refreshing on literally
+ * every request would mean a write on every page load of a single-writer
+ * SQLite database, to save at most an hour of session life.
+ */
+export function touchExpiry(session: Row<SessionRow>): string | null {
+  const next = new Date(Date.now() + LIMITS.session.lifetimeMs);
+  const current = new Date(session.expires_at);
+  if (next.getTime() - current.getTime() < 60 * 60 * 1000) return null;
+
+  const expiresAt = next.toISOString();
+  getDb().prepare('UPDATE session SET expires_at = ? WHERE id = ?').run(expiresAt, session.id);
+
+  /*
+   * Returned so the caller can re-issue the cookie.
+   *
+   * Extending the database row alone does nothing a user can feel: the
+   * browser holds its own `Expires`, written once at login, and drops the
+   * cookie on that schedule regardless of what the server thinks. The first
+   * version of this did exactly that — the row sled forward, the cookie did
+   * not, and everyone was still hard-logged-out on day 30.
+   */
+  return expiresAt;
 }
 
 export function deleteByToken(token: string): void {

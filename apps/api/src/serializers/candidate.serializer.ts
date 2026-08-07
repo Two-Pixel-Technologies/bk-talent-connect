@@ -46,6 +46,8 @@ export type CandidateRelations = {
   readonly functionSlug: string | null;
   readonly functionName: string | null;
   readonly hasResume: boolean;
+  readonly resumeFileId: string | null;
+  readonly resumeFileName: string | null;
 };
 
 function toExperienceView(row: Row<CandidateExperienceRow>): ExperienceView {
@@ -91,20 +93,32 @@ function commonFields(row: Row<CandidateProfileRow>, rel: CandidateRelations) {
     careerSummary: c.career_summary,
     noticePeriod: c.notice_period as NoticePeriod | null,
     employmentPreference: c.employment_preference as EmploymentPreference | null,
-    linkedinUrl: c.linkedin_url,
+    /*
+     * linkedinUrl is NOT here.
+     *
+     * It is a working direct-contact channel — the whole managed model, and
+     * BK's fee, rests on employers not having one. It sat in the fields every
+     * audience shares, so every employer with an application received it from
+     * APPLIED onward, while the candidate's own privacy page told them in
+     * writing that employers see none of their contact details.
+     *
+     * The mirror case was already handled for the EMPLOYER's linkedin and
+     * website (MATERIAL_EMPLOYER_FIELDS in schemas/job.ts); this direction was
+     * missed. It now belongs to the self and admin views only.
+     */
     skills: rel.skills,
     experiences: rel.experiences.map(toExperienceView),
     hasResume: rel.hasResume,
   };
 }
 
-export type SelfCandidateView = ReturnType<typeof toSelfView>;
-
 export function toSelfView(row: Row<CandidateProfileRow>, rel: CandidateRelations) {
   const c = unbrand(row);
   return {
     ...commonFields(row, rel),
     mobile: c.mobile,
+    // Their own link, on their own profile.
+    linkedinUrl: c.linkedin_url,
     // The candidate's own figures, shown back in LPA as they entered them.
     currentSalaryLpa: c.current_salary == null ? null : rupeesToLpa(c.current_salary),
     expectedSalaryMinLpa: c.expected_salary_min == null ? null : rupeesToLpa(c.expected_salary_min),
@@ -124,14 +138,18 @@ export function toSelfView(row: Row<CandidateProfileRow>, rel: CandidateRelation
  * than deleting what is not — a spread of the row with omissions is one careless
  * edit away from leaking.
  */
+/**
+ * Load-bearing, unlike the other view aliases: application.serializer.ts takes
+ * this as a parameter type, which is what stops an application payload being
+ * built from anything less careful than the employer candidate view.
+ */
 export type EmployerCandidateView = ReturnType<typeof toEmployerView>;
 
 export function toEmployerView(row: Row<CandidateProfileRow>, rel: CandidateRelations) {
-  // No mobile. No email. No salary of any kind. No admin review notes.
+  // No mobile. No email. No LinkedIn. No salary of any kind. No review notes.
+  // Every contact route runs through the BK team.
   return commonFields(row, rel);
 }
-
-export type AdminCandidateView = ReturnType<typeof toAdminView>;
 
 export function toAdminView(
   row: Row<CandidateProfileRow>,
@@ -143,7 +161,13 @@ export function toAdminView(
     ...commonFields(row, rel),
     email: extra.email,
     mobile: c.mobile,
+    // Admin-only, alongside email and mobile: BK verifies people, and every
+    // contact route runs through them.
+    linkedinUrl: c.linkedin_url,
     userStatus: extra.userStatus,
+    // The account behind the profile, so the admin can suspend from the
+    // screen where they are already looking at the person.
+    userId: c.user_id,
     currentSalaryLpa: c.current_salary == null ? null : rupeesToLpa(c.current_salary),
     expectedSalaryMinLpa: c.expected_salary_min == null ? null : rupeesToLpa(c.expected_salary_min),
     expectedSalaryMaxLpa: c.expected_salary_max == null ? null : rupeesToLpa(c.expected_salary_max),
@@ -152,6 +176,10 @@ export function toAdminView(
     reviewedAt: c.reviewed_at,
     reviewNote: c.review_note,
     completionPercent: c.completion_percent,
+    // The admin is the party vetting this person; withholding the CV meant the
+    // approval gate — the product's whole value — was exercised blind.
+    resumeFileId: rel.resumeFileId,
+    resumeFileName: rel.resumeFileName,
     consentedAt: c.consented_at,
     consentVersion: c.consent_version,
     lastActiveAt: c.last_active_at,

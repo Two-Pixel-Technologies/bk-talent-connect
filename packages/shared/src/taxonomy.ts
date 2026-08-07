@@ -19,6 +19,11 @@ export interface TaxonomyEntry {
   readonly name: string;
 }
 
+/** A city belongs to exactly one state, so the two dropdowns can cascade. */
+export interface CityEntry extends TaxonomyEntry {
+  readonly state: string;
+}
+
 /** Industry. 28 entries plus OTHER. */
 export const SECTORS: readonly TaxonomyEntry[] = [
   { slug: 'epc', name: 'Engineering, Procurement & Construction' },
@@ -83,64 +88,136 @@ export const FUNCTIONS: readonly TaxonomyEntry[] = [
  * Weighted towards India's industrial belts rather than being a generic
  * population ranking.
  */
-export const CITIES: readonly TaxonomyEntry[] = [
-  { slug: 'ahmedabad', name: 'Ahmedabad' },
-  { slug: 'aurangabad', name: 'Chhatrapati Sambhajinagar (Aurangabad)' },
-  { slug: 'bengaluru', name: 'Bengaluru' },
-  { slug: 'bhopal', name: 'Bhopal' },
-  { slug: 'bhubaneswar', name: 'Bhubaneswar' },
-  { slug: 'chandigarh', name: 'Chandigarh' },
-  { slug: 'chennai', name: 'Chennai' },
-  { slug: 'coimbatore', name: 'Coimbatore' },
-  { slug: 'dehradun', name: 'Dehradun' },
-  { slug: 'delhi', name: 'Delhi' },
-  { slug: 'faridabad', name: 'Faridabad' },
-  { slug: 'gandhinagar', name: 'Gandhinagar' },
-  { slug: 'ghaziabad', name: 'Ghaziabad' },
-  { slug: 'goa', name: 'Goa' },
-  { slug: 'gurugram', name: 'Gurugram' },
-  { slug: 'guwahati', name: 'Guwahati' },
-  { slug: 'hosur', name: 'Hosur' },
-  { slug: 'hyderabad', name: 'Hyderabad' },
-  { slug: 'indore', name: 'Indore' },
-  { slug: 'jaipur', name: 'Jaipur' },
-  { slug: 'jamshedpur', name: 'Jamshedpur' },
-  { slug: 'kanpur', name: 'Kanpur' },
-  { slug: 'kochi', name: 'Kochi' },
-  { slug: 'kolhapur', name: 'Kolhapur' },
-  { slug: 'kolkata', name: 'Kolkata' },
-  { slug: 'lucknow', name: 'Lucknow' },
-  { slug: 'ludhiana', name: 'Ludhiana' },
-  { slug: 'madurai', name: 'Madurai' },
-  { slug: 'mangaluru', name: 'Mangaluru' },
-  { slug: 'mumbai', name: 'Mumbai' },
-  { slug: 'mysuru', name: 'Mysuru' },
-  { slug: 'nagpur', name: 'Nagpur' },
-  { slug: 'nashik', name: 'Nashik' },
-  { slug: 'navi-mumbai', name: 'Navi Mumbai' },
-  { slug: 'noida', name: 'Noida' },
-  { slug: 'patna', name: 'Patna' },
-  { slug: 'pimpri-chinchwad', name: 'Pimpri-Chinchwad' },
-  { slug: 'pune', name: 'Pune' },
-  { slug: 'raipur', name: 'Raipur' },
-  { slug: 'rajkot', name: 'Rajkot' },
-  { slug: 'ranchi', name: 'Ranchi' },
-  { slug: 'rourkela', name: 'Rourkela' },
-  { slug: 'salem', name: 'Salem' },
-  { slug: 'sanand', name: 'Sanand' },
-  { slug: 'silvassa', name: 'Silvassa' },
-  { slug: 'sriperumbudur', name: 'Sriperumbudur' },
-  { slug: 'surat', name: 'Surat' },
-  { slug: 'thane', name: 'Thane' },
-  { slug: 'tiruchirappalli', name: 'Tiruchirappalli' },
-  { slug: 'tirupur', name: 'Tiruppur' },
-  { slug: 'vadodara', name: 'Vadodara' },
-  { slug: 'vapi', name: 'Vapi' },
-  { slug: 'varanasi', name: 'Varanasi' },
-  { slug: 'vijayawada', name: 'Vijayawada' },
-  { slug: 'visakhapatnam', name: 'Visakhapatnam' },
-  { slug: 'other', name: 'Other' },
+export const CITIES: readonly CityEntry[] = [
+  // Andhra Pradesh
+  { slug: 'visakhapatnam', name: 'Visakhapatnam', state: 'Andhra Pradesh' },
+  { slug: 'vijayawada', name: 'Vijayawada', state: 'Andhra Pradesh' },
+  { slug: 'tirupati', name: 'Tirupati', state: 'Andhra Pradesh' },
+  // Assam
+  { slug: 'guwahati', name: 'Guwahati', state: 'Assam' },
+  // Bihar
+  { slug: 'patna', name: 'Patna', state: 'Bihar' },
+  // Chandigarh
+  { slug: 'chandigarh', name: 'Chandigarh', state: 'Chandigarh' },
+  // Chhattisgarh
+  { slug: 'raipur', name: 'Raipur', state: 'Chhattisgarh' },
+  { slug: 'bhilai', name: 'Bhilai', state: 'Chhattisgarh' },
+  // Dadra & Nagar Haveli and Daman & Diu
+  { slug: 'silvassa', name: 'Silvassa', state: 'Dadra & Nagar Haveli and Daman & Diu' },
+  { slug: 'daman', name: 'Daman', state: 'Dadra & Nagar Haveli and Daman & Diu' },
+  // Delhi
+  { slug: 'delhi', name: 'Delhi', state: 'Delhi' },
+  // Goa
+  { slug: 'panaji', name: 'Panaji', state: 'Goa' },
+  { slug: 'verna', name: 'Verna', state: 'Goa' },
+  // Gujarat
+  { slug: 'ahmedabad', name: 'Ahmedabad', state: 'Gujarat' },
+  { slug: 'vadodara', name: 'Vadodara', state: 'Gujarat' },
+  { slug: 'surat', name: 'Surat', state: 'Gujarat' },
+  { slug: 'rajkot', name: 'Rajkot', state: 'Gujarat' },
+  { slug: 'gandhinagar', name: 'Gandhinagar', state: 'Gujarat' },
+  { slug: 'sanand', name: 'Sanand', state: 'Gujarat' },
+  { slug: 'vapi', name: 'Vapi', state: 'Gujarat' },
+  { slug: 'ankleshwar', name: 'Ankleshwar', state: 'Gujarat' },
+  { slug: 'jamnagar', name: 'Jamnagar', state: 'Gujarat' },
+  { slug: 'bharuch', name: 'Bharuch', state: 'Gujarat' },
+  // Haryana
+  { slug: 'gurugram', name: 'Gurugram', state: 'Haryana' },
+  { slug: 'faridabad', name: 'Faridabad', state: 'Haryana' },
+  { slug: 'manesar', name: 'Manesar', state: 'Haryana' },
+  { slug: 'panipat', name: 'Panipat', state: 'Haryana' },
+  // Himachal Pradesh
+  { slug: 'baddi', name: 'Baddi', state: 'Himachal Pradesh' },
+  // Jammu & Kashmir
+  { slug: 'jammu', name: 'Jammu', state: 'Jammu & Kashmir' },
+  // Jharkhand
+  { slug: 'jamshedpur', name: 'Jamshedpur', state: 'Jharkhand' },
+  { slug: 'ranchi', name: 'Ranchi', state: 'Jharkhand' },
+  { slug: 'bokaro', name: 'Bokaro', state: 'Jharkhand' },
+  // Karnataka
+  { slug: 'bengaluru', name: 'Bengaluru', state: 'Karnataka' },
+  { slug: 'mysuru', name: 'Mysuru', state: 'Karnataka' },
+  { slug: 'mangaluru', name: 'Mangaluru', state: 'Karnataka' },
+  { slug: 'hubballi', name: 'Hubballi', state: 'Karnataka' },
+  { slug: 'belagavi', name: 'Belagavi', state: 'Karnataka' },
+  // Kerala
+  { slug: 'kochi', name: 'Kochi', state: 'Kerala' },
+  { slug: 'thiruvananthapuram', name: 'Thiruvananthapuram', state: 'Kerala' },
+  // Madhya Pradesh
+  { slug: 'indore', name: 'Indore', state: 'Madhya Pradesh' },
+  { slug: 'bhopal', name: 'Bhopal', state: 'Madhya Pradesh' },
+  { slug: 'pithampur', name: 'Pithampur', state: 'Madhya Pradesh' },
+  // Maharashtra
+  { slug: 'pune', name: 'Pune', state: 'Maharashtra' },
+  { slug: 'mumbai', name: 'Mumbai', state: 'Maharashtra' },
+  { slug: 'navi-mumbai', name: 'Navi Mumbai', state: 'Maharashtra' },
+  { slug: 'thane', name: 'Thane', state: 'Maharashtra' },
+  { slug: 'pimpri-chinchwad', name: 'Pimpri-Chinchwad', state: 'Maharashtra' },
+  { slug: 'nashik', name: 'Nashik', state: 'Maharashtra' },
+  { slug: 'aurangabad', name: 'Chhatrapati Sambhajinagar (Aurangabad)', state: 'Maharashtra' },
+  { slug: 'nagpur', name: 'Nagpur', state: 'Maharashtra' },
+  { slug: 'kolhapur', name: 'Kolhapur', state: 'Maharashtra' },
+  { slug: 'chakan', name: 'Chakan', state: 'Maharashtra' },
+  // Odisha
+  { slug: 'bhubaneswar', name: 'Bhubaneswar', state: 'Odisha' },
+  { slug: 'rourkela', name: 'Rourkela', state: 'Odisha' },
+  { slug: 'angul', name: 'Angul', state: 'Odisha' },
+  // Puducherry
+  { slug: 'puducherry', name: 'Puducherry', state: 'Puducherry' },
+  // Punjab
+  { slug: 'ludhiana', name: 'Ludhiana', state: 'Punjab' },
+  { slug: 'mohali', name: 'Mohali', state: 'Punjab' },
+  { slug: 'jalandhar', name: 'Jalandhar', state: 'Punjab' },
+  // Rajasthan
+  { slug: 'jaipur', name: 'Jaipur', state: 'Rajasthan' },
+  { slug: 'bhiwadi', name: 'Bhiwadi', state: 'Rajasthan' },
+  { slug: 'jodhpur', name: 'Jodhpur', state: 'Rajasthan' },
+  // Tamil Nadu
+  { slug: 'chennai', name: 'Chennai', state: 'Tamil Nadu' },
+  { slug: 'coimbatore', name: 'Coimbatore', state: 'Tamil Nadu' },
+  { slug: 'hosur', name: 'Hosur', state: 'Tamil Nadu' },
+  { slug: 'sriperumbudur', name: 'Sriperumbudur', state: 'Tamil Nadu' },
+  { slug: 'tiruchirappalli', name: 'Tiruchirappalli', state: 'Tamil Nadu' },
+  { slug: 'salem', name: 'Salem', state: 'Tamil Nadu' },
+  { slug: 'madurai', name: 'Madurai', state: 'Tamil Nadu' },
+  { slug: 'tirupur', name: 'Tiruppur', state: 'Tamil Nadu' },
+  // Telangana
+  { slug: 'hyderabad', name: 'Hyderabad', state: 'Telangana' },
+  { slug: 'sangareddy', name: 'Sangareddy', state: 'Telangana' },
+  // Uttar Pradesh
+  { slug: 'noida', name: 'Noida', state: 'Uttar Pradesh' },
+  { slug: 'ghaziabad', name: 'Ghaziabad', state: 'Uttar Pradesh' },
+  { slug: 'greater-noida', name: 'Greater Noida', state: 'Uttar Pradesh' },
+  { slug: 'kanpur', name: 'Kanpur', state: 'Uttar Pradesh' },
+  { slug: 'lucknow', name: 'Lucknow', state: 'Uttar Pradesh' },
+  { slug: 'varanasi', name: 'Varanasi', state: 'Uttar Pradesh' },
+  // Uttarakhand
+  { slug: 'dehradun', name: 'Dehradun', state: 'Uttarakhand' },
+  { slug: 'haridwar', name: 'Haridwar', state: 'Uttarakhand' },
+  { slug: 'pantnagar', name: 'Pantnagar', state: 'Uttarakhand' },
+  // West Bengal
+  { slug: 'kolkata', name: 'Kolkata', state: 'West Bengal' },
+  { slug: 'haldia', name: 'Haldia', state: 'West Bengal' },
+  { slug: 'durgapur', name: 'Durgapur', state: 'West Bengal' },
 ] as const;
+
+/**
+ * "Other" is offered in every state rather than being one global entry —
+ * industrial India has far more towns than any list can carry, and forcing a
+ * candidate in an unlisted town to pick the wrong city would corrupt the
+ * location data that Phase 2 scores on.
+ */
+export const OTHER_CITY_SLUG = 'other';
+
+export function citiesInState(state: string | null | undefined): CityEntry[] {
+  if (!state) return [];
+  return CITIES.filter((city) => city.state === state);
+}
+
+export function stateOfCity(slug: string | null | undefined): string | null {
+  if (!slug) return null;
+  return CITIES.find((city) => city.slug === slug)?.state ?? null;
+}
 
 export const INDIAN_STATES: readonly string[] = [
   'Andhra Pradesh',
@@ -182,16 +259,56 @@ export const INDIAN_STATES: readonly string[] = [
 ] as const;
 
 /**
+ * Characters that carry meaning in a skill name and must survive slugging.
+ *
+ * Stripping everything non-alphanumeric merged P&ID (piping and
+ * instrumentation diagrams) with PID (proportional-integral-derivative
+ * control) — two unrelated competencies in this client's sectors — and did the
+ * same to C++/C and GD&T/GDT.
+ */
+const MEANINGFUL_SYMBOLS: Record<string, string> = {
+  '&': 'and',
+  '+': 'plus',
+  '#': 'sharp',
+};
+
+/**
  * Skill slug normalisation.
  *
- * Strips every non-alphanumeric character so "Auto CAD", "AutoCAD" and
- * "auto-cad" all converge on "autocad". This deliberately accepts a false-merge
- * risk in exchange for not fragmenting the taxonomy that Phase 2's matcher
- * scores 35/100 points against. The seeded starter list keeps common skills
- * from ever being auto-created, and the admin merge tool handles the rest.
+ * Collapses spacing and punctuation so "Auto CAD", "AutoCAD" and "auto-cad"
+ * converge, while keeping the symbols above as words so distinct terms stay
+ * distinct.
+ *
+ * Non-Latin names are preserved rather than dropped. Previously every name
+ * written in Devanagari, Tamil or emoji normalised to the empty string, so they
+ * all collided on ONE shared row and inherited whichever name was created
+ * first — a candidate typing a Hindi skill got someone else's text on their
+ * profile. Phase 2 scores this table for 35 of 100 points.
  */
 export function normaliseSkillSlug(raw: string): string {
-  return raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const expanded = raw
+    .toLowerCase()
+    .replace(/[&+#]/g, (ch) => `-${MEANINGFUL_SYMBOLS[ch]}-`)
+    // Compatibility-decompose so accented Latin folds to its base letter.
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+  // Keep any letter or digit in any script, plus the expansion separators.
+  const slug = expanded
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-+/g, '-');
+
+  return slug;
+}
+
+/**
+ * True when a name carries no letters or digits at all (pure punctuation or
+ * emoji). Such a name has no usable slug and is rejected rather than collapsed
+ * onto a shared row.
+ */
+export function isUnusableSkillName(raw: string): boolean {
+  return normaliseSkillSlug(raw).length === 0;
 }
 
 export function slugify(raw: string): string {

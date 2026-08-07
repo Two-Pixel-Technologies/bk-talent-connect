@@ -1,5 +1,7 @@
 import { z } from 'zod';
+import { webUrlSchema } from './url.js';
 import { LIMITS } from '../limits.js';
+import { mobileSchema } from './auth.js';
 import {
   EDUCATION_LEVELS,
   EMPLOYMENT_PREFERENCES,
@@ -52,7 +54,7 @@ const lpaSchema = z
  */
 export const updateProfileSchema = z.object({
   fullName: z.string().trim().min(LIMITS.candidate.fullName.min).max(LIMITS.candidate.fullName.max).optional(),
-  mobile: z.string().trim().regex(/^[0-9+\-\s]{10,15}$/, 'Enter a valid mobile number.').optional(),
+  mobile: mobileSchema.optional(),
   citySlug: z.string().trim().max(80).optional(),
   state: z.string().trim().max(LIMITS.shortText.max).optional(),
   openToRelocation: z.boolean().optional(),
@@ -83,7 +85,7 @@ export const updateProfileSchema = z.object({
   expectedSalaryMinLpa: lpaSchema.optional(),
   expectedSalaryMaxLpa: lpaSchema.optional(),
 
-  linkedinUrl: z.string().trim().url('Enter a valid URL.').max(LIMITS.url.max).or(z.literal('')).optional(),
+  linkedinUrl: webUrlSchema.optional(),
 
   skills: z
     .array(z.string().trim().min(1).max(60))
@@ -98,7 +100,7 @@ export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export const submitProfileSchema = z
   .object({
     fullName: z.string().trim().min(LIMITS.candidate.fullName.min),
-    mobile: z.string().trim().min(LIMITS.mobile.min),
+    mobile: mobileSchema,
     citySlug: z.string().min(1, 'Choose your city.'),
     state: z.string().min(1, 'Choose your state.'),
     currentJobTitle: z.string().trim().min(2, 'Enter your current job title.'),

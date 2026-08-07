@@ -13,6 +13,22 @@
 
 import type { Role } from './enums.js';
 
+/**
+ * What a notification points at.
+ *
+ * Notifications store a subject, not a URL — the same event links somewhere
+ * different for a candidate than for an admin, and a route rename would
+ * otherwise orphan every historical row.
+ */
+export const NOTIFICATION_ENTITY_TYPES = [
+  'CANDIDATE',
+  'EMPLOYER',
+  'JOB',
+  'APPLICATION',
+  'INTERVIEW',
+] as const;
+export type NotificationEntityType = (typeof NOTIFICATION_ENTITY_TYPES)[number];
+
 export const NOTIFICATION_EVENTS = [
   'CANDIDATE_REGISTERED',
   'CANDIDATE_PROFILE_APPROVED',
