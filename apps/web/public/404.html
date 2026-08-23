@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>BK Talent Connect</title>
+    <!--
+      GitHub Pages has no server-side rewrites, so any deep link (e.g.
+      /bk-talent-connect/about) that isn't the root document 404s. This is
+      the standard workaround (https://github.com/rafgraph/spa-github-pages):
+      GitHub serves this file for the 404, which redirects to the app root
+      with the intended path encoded in the query string; index.html's
+      matching script decodes it back into a real path before the SPA
+      router boots. `pathSegmentsToKeep = 1` matches this being a project
+      page served under /bk-talent-connect/, not a user/org root page.
+    -->
+    <script>
+      var pathSegmentsToKeep = 1;
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    </script>
+  </head>
+  <body></body>
+</html>

@@ -256,4 +256,9 @@ export const router = createBrowserRouter([
       { path: '*', element: <NotFoundPage /> },
     ],
   },
-]);
+], {
+  // Matches Vite's `base` config (see vite.config.ts) — a no-op "/" locally
+  // and in the default production build, only becoming a real subpath when
+  // deployed to GitHub Pages under a repo path.
+  basename: import.meta.env.BASE_URL,
+});

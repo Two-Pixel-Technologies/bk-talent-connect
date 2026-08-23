@@ -23,6 +23,10 @@ function gitSha(): string {
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Only set for the GitHub Pages workflow (see .github/workflows/deploy-web.yml);
+  // every other build (local dev, the existing nginx/prod path) keeps the
+  // default "/" and is unaffected.
+  base: process.env.VITE_BASE_PATH ?? '/',
   define: {
     __APP_VERSION__: JSON.stringify(gitSha()),
   },
