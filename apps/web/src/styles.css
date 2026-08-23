@@ -25,6 +25,23 @@
 
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /*
+   * Public marketing site tokens (Home, and the public pages that follow it).
+   * Kept separate from --color-brand-* and --color-accent-* above: those drive the
+   * authenticated portal today and must not shift when the public site's
+   * approved blue/white palette is tuned.
+   */
+  --color-pub-navy: #173a70;
+  --color-pub-blue: #2f6fed;
+  --color-pub-blue-light: #ecf3ff;
+  --color-pub-bg: #f6f8fc;
+  --color-pub-border: #d7deea;
+  --color-pub-text: #172033;
+  --color-pub-muted: #667085;
+
+  --font-heading: 'Manrope', var(--font-sans);
+  --font-public: 'Inter', var(--font-sans);
 }
 
 @layer base {

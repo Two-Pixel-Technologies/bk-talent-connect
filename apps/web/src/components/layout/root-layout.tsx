@@ -1,6 +1,25 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation, useNavigationType } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { onVersionSkew } from '../../lib/api-client.js';
+
+/**
+ * Resets scroll to the top on every navigation to a new route. Skipped for
+ * POP navigation (back/forward) so the browser's native scroll restoration —
+ * returning to where the user was — keeps working; only PUSH/REPLACE (link
+ * clicks, programmatic navigation) force a scroll-to-top.
+ */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  const navigationType = useNavigationType();
+
+  useEffect(() => {
+    if (navigationType !== 'POP') {
+      window.scrollTo(0, 0);
+    }
+  }, [pathname, navigationType]);
+
+  return null;
+}
 
 /**
  * Shell shared by every route. The version-skew banner lives here because it
@@ -15,6 +34,7 @@ export function RootLayout() {
 
   return (
     <div className="min-h-screen">
+      <ScrollToTop />
       {staleBuild && (
         <div
           role="status"

@@ -9,8 +9,13 @@
 import { lazy, Suspense, type ReactNode } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { RootLayout } from './components/layout/root-layout.js';
+import { PublicLayout } from './components/layout/public-layout.js';
 import { ProtectedRoute } from './features/auth/auth-context.js';
-import { LandingPage } from './pages/landing.js';
+import { HomePage } from './pages/public/home.js';
+import { ForCandidatesPage } from './pages/public/for-candidates.js';
+import { ForEmployersPage } from './pages/public/for-employers.js';
+import { AboutPage } from './pages/public/about.js';
+import { ContactPage } from './pages/public/contact.js';
 import { SystemStatusPage } from './pages/system-status.js';
 import { BuildStatusPage } from './pages/build-status.js';
 import { NotFoundPage } from './pages/not-found.js';
@@ -71,7 +76,16 @@ export const router = createBrowserRouter([
     path: '/',
     element: <RootLayout />,
     children: [
-      { index: true, element: <LandingPage /> },
+      {
+        element: <PublicLayout />,
+        children: [
+          { index: true, element: <HomePage /> },
+          { path: 'for-candidates', element: <ForCandidatesPage /> },
+          { path: 'for-employers', element: <ForEmployersPage /> },
+          { path: 'about', element: <AboutPage /> },
+          { path: 'contact', element: <ContactPage /> },
+        ],
+      },
 
       /*
        * Internal build and system pages, development only.
