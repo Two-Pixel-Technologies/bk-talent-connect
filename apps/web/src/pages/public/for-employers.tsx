@@ -151,7 +151,7 @@ function Hero() {
           this page — the hero previously zeroed this out at lg: and let the
           text div re-pad itself, which is why it drifted out of alignment
           with the rest of the site. */}
-      <div className="relative mx-auto grid max-w-6xl gap-x-12 gap-y-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[45%_55%] lg:items-center lg:py-20">
+      <div className="relative mx-auto grid max-w-6xl gap-x-12 gap-y-10 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[45%_55%] lg:items-center lg:py-16">
         <div className="rounded-2xl bg-[#0A2E73] px-6 py-8 sm:px-10 sm:py-10 lg:rounded-none lg:bg-transparent lg:px-0 lg:py-0">
           <h1 className="font-heading text-3xl font-extrabold leading-[1.12] text-white sm:text-4xl lg:text-5xl">
             {hero.heading.map((part) => (
@@ -195,7 +195,7 @@ function Hero() {
 
 function Stats() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <div className="grid grid-cols-2 gap-y-6 rounded-2xl border border-pub-border bg-white p-6 shadow-sm sm:p-8 md:grid-cols-4 md:gap-y-0">
         {home.stats.map((stat, index) => (
           <div
@@ -222,9 +222,9 @@ function Stats() {
 
 function WhyChoose() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:py-14 lg:py-16 sm:px-6">
+    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-12 sm:px-6">
       <SectionHeading eyebrow="Why Employers Choose Us" title="A better way to hire" />
-      <div className="mt-10 grid gap-8 divide-y divide-pub-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+      <div className="mt-8 grid gap-8 divide-y divide-pub-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         {forEmployers.whyChoose.map((item) => {
           const Art = ART[item.art];
           return (
@@ -247,11 +247,11 @@ function WhyChoose() {
 function HowItWorks() {
   const steps = forEmployers.howItWorks.steps;
   return (
-    <section id="how-it-works" className="scroll-mt-20 bg-pub-bg py-10 sm:py-14 lg:py-16">
+    <section id="how-it-works" className="scroll-mt-20 bg-pub-bg py-8 sm:py-10 lg:py-12">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow="How It Works" title={forEmployers.howItWorks.title} />
 
-        <div className="relative mt-10 grid grid-cols-2 gap-x-4 gap-y-8 rounded-2xl border border-pub-border bg-white p-6 sm:p-8 md:grid-cols-5">
+        <div className="relative mt-8 grid grid-cols-2 gap-x-4 gap-y-8 rounded-2xl border border-pub-border bg-white p-6 sm:p-8 md:grid-cols-5">
           <div
             aria-hidden="true"
             className="absolute inset-x-10 top-[52px] hidden border-t-2 border-dashed border-pub-blue/30 md:block"
@@ -270,7 +270,7 @@ function HowItWorks() {
           ))}
           {steps.map((step, index) => (
             <div key={step.title} className="relative z-10 flex flex-col items-center text-center">
-              <IllustratedBadge size="lg">
+              <IllustratedBadge size="lg" tone="outline">
                 <Icon name={step.icon} className="size-5" />
               </IllustratedBadge>
               <p className="mt-2.5 text-[10px] font-semibold uppercase tracking-wide text-pub-blue">
@@ -293,9 +293,9 @@ function HowItWorks() {
 function WhatYouCanDo() {
   const { whatYouCanDo } = forEmployers;
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:py-14 lg:py-16 sm:px-6">
+    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-12 sm:px-6">
       <SectionHeading eyebrow="What You Can Do" title={whatYouCanDo.heading} />
-      <div className="mt-10 grid gap-10 lg:grid-cols-2 lg:items-center">
+      <div className="mt-8 grid gap-10 lg:grid-cols-2 lg:items-center">
         <EmployerDashboardArt
           counts={whatYouCanDo.dashboard.counts}
           rows={whatYouCanDo.dashboard.rows}
@@ -304,7 +304,7 @@ function WhatYouCanDo() {
         <div className="grid gap-6 sm:grid-cols-2">
           {whatYouCanDo.items.map((item) => (
             <div key={item.title} className="flex items-start gap-3">
-              <IllustratedBadge size="md">
+              <IllustratedBadge size="md" tone="outline">
                 <Icon name={item.icon} className="size-5" />
               </IllustratedBadge>
               <div>
@@ -325,15 +325,13 @@ function WhatYouCanDo() {
 
 function Industries() {
   return (
-    <section id="industries" className="scroll-mt-20 bg-pub-bg py-10 sm:py-14 lg:py-16">
+    <section id="industries" className="scroll-mt-20 bg-pub-bg py-8 sm:py-10 lg:py-12">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow="Industries We Serve" title="Roles we help you fill" />
-        <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-6 rounded-2xl border border-pub-border bg-white p-6 sm:grid-cols-3 sm:p-8 lg:grid-cols-6">
+        <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-6 rounded-2xl border border-pub-border bg-white p-6 sm:grid-cols-3 sm:p-8 lg:grid-cols-6 lg:gap-y-0 lg:divide-x lg:divide-pub-border">
           {home.industries.map((industry) => (
-            <div key={industry.name} className="flex flex-col items-center gap-2.5 text-center">
-              <span className="flex size-11 items-center justify-center rounded-lg bg-pub-bg text-pub-navy">
-                <Icon name={industry.icon} className="size-5" />
-              </span>
+            <div key={industry.name} className="flex flex-col items-center gap-2.5 text-center lg:px-2">
+              <Icon name={industry.icon} className="size-7 text-pub-blue" />
               <span className="text-xs font-medium leading-tight text-pub-navy">{industry.name}</span>
             </div>
           ))}
@@ -350,7 +348,7 @@ function Industries() {
 function FinalCta() {
   const { finalCta } = forEmployers;
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:py-14 lg:py-16 sm:px-6">
+    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-12 sm:px-6">
       <div className="grid gap-8 rounded-2xl bg-pub-blue-light p-6 sm:p-10 lg:grid-cols-[auto_1fr_auto] lg:items-center">
         <TargetAvatarsArt className="mx-auto h-32 w-32 sm:h-40 sm:w-40" />
         <div>

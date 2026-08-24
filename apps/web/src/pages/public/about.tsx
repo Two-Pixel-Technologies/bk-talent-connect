@@ -26,11 +26,10 @@ export function AboutPage() {
   return (
     <main className="overflow-x-clip">
       <Hero />
-      <Story />
       <Values />
+      <Story />
       <HiringApproach />
       <Impact />
-      <WhyUs />
       <FinalCta />
     </main>
   );
@@ -53,7 +52,7 @@ function Hero() {
   const { hero } = aboutUs;
   return (
     <section className="border-b border-pub-border bg-white">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:py-16 lg:grid-cols-2 lg:items-center">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-8 sm:px-6 sm:py-10 lg:py-12 lg:grid-cols-2 lg:items-center">
         <div>
           <h1 className="font-heading text-3xl font-extrabold leading-[1.1] text-pub-navy sm:text-4xl lg:text-5xl">
             {hero.heading.map((part) => (
@@ -82,11 +81,11 @@ function Hero() {
 
 function Values() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:py-14 lg:py-16 sm:px-6">
+    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-12 sm:px-6">
       <div className="grid gap-8 divide-y divide-pub-border rounded-2xl border border-pub-border bg-white p-6 shadow-sm sm:p-8 md:grid-cols-4 md:divide-x md:divide-y-0">
         {aboutUs.values.map((item) => (
           <div key={item.title} className="flex flex-col items-center pt-8 text-center first:pt-0 md:px-4 md:pt-0">
-            <IllustratedBadge size="lg">
+            <IllustratedBadge size="lg" tone="outline">
               <Icon name={item.icon} className="size-6" />
             </IllustratedBadge>
             <h3 className="mt-4 font-heading text-base font-bold text-pub-navy">{item.title}</h3>
@@ -105,7 +104,7 @@ function Values() {
 function Story() {
   const { story } = aboutUs;
   return (
-    <section className="bg-pub-bg py-10 sm:py-14 lg:py-16">
+    <section className="bg-pub-bg py-8 sm:py-10 lg:py-12">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-2 lg:items-center">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-pub-blue">{story.eyebrow}</p>
@@ -148,7 +147,7 @@ function Story() {
 function HiringApproach() {
   const { approach } = aboutUs;
   return (
-    <section className="bg-pub-bg py-10 sm:py-14 lg:py-16">
+    <section className="bg-pub-bg py-8 sm:py-10 lg:py-12">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-xs font-semibold uppercase tracking-widest text-pub-blue">{approach.eyebrow}</p>
@@ -162,7 +161,7 @@ function HiringApproach() {
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-pub-muted sm:text-base">{approach.body}</p>
         </div>
 
-        <div className="relative mt-10 grid grid-cols-2 gap-x-4 gap-y-8 rounded-2xl border border-pub-border bg-white p-6 sm:p-8 md:grid-cols-4">
+        <div className="relative mt-8 grid grid-cols-2 gap-x-4 gap-y-8 rounded-2xl border border-pub-border bg-white p-6 sm:p-8 md:grid-cols-4">
           <div
             aria-hidden="true"
             className="absolute inset-x-10 top-[52px] hidden border-t-2 border-dashed border-pub-blue/30 md:block"
@@ -181,7 +180,7 @@ function HiringApproach() {
           ))}
           {approach.steps.map((step, index) => (
             <div key={step.title} className="relative z-10 flex flex-col items-center text-center">
-              <IllustratedBadge size="lg">
+              <IllustratedBadge size="lg" tone="outline">
                 <Icon name={step.icon} className="size-5" />
               </IllustratedBadge>
               <p className="mt-2.5 text-[10px] font-semibold uppercase tracking-wide text-pub-blue">
@@ -203,42 +202,21 @@ function HiringApproach() {
 
 function Impact() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:py-14 lg:py-16 sm:px-6">
+    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-12 sm:px-6">
       <SectionHeading eyebrow={aboutUs.impact.eyebrow} title={aboutUs.impact.heading} />
-      <div className="mt-10 grid grid-cols-2 gap-y-6 rounded-2xl border border-pub-border bg-white p-6 shadow-sm sm:p-8 md:grid-cols-4 md:gap-y-0">
-        {home.stats.map((stat, index) => (
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {home.stats.map((stat) => (
           <div
             key={stat.label}
-            className={`flex flex-col items-center gap-2 text-center md:border-pub-border ${index > 0 ? 'md:border-l' : ''}`}
+            className="flex items-center gap-3 rounded-xl border border-pub-border bg-white p-5 shadow-sm"
           >
-            <span className="flex size-11 items-center justify-center rounded-full bg-pub-blue-light text-pub-blue">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-pub-blue-light text-pub-blue">
               <Icon name={stat.icon} className="size-5" />
             </span>
-            <p className="font-heading text-lg font-bold text-pub-navy sm:text-xl">{stat.value}</p>
-            <p className="text-xs text-pub-muted sm:text-sm">{stat.label}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ---------------------------------------------------------------------- */
-/* Why Us — reuses Home's whyUs data/cards so the reasons never disagree.  */
-/* ---------------------------------------------------------------------- */
-
-function WhyUs() {
-  return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:py-14 lg:py-16 sm:px-6">
-      <SectionHeading eyebrow={aboutUs.whyUs.eyebrow} title={aboutUs.whyUs.heading} />
-      <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {home.whyUs.map((item) => (
-          <div key={item.title} className="rounded-xl border border-pub-border bg-white p-5 text-center transition-all duration-200 hover:-translate-y-1 hover:border-pub-blue/40 hover:shadow-md">
-            <IllustratedBadge size="lg" className="mx-auto">
-              <Icon name={item.icon} className="size-6" />
-            </IllustratedBadge>
-            <h3 className="mt-3 font-heading text-sm font-bold text-pub-navy">{item.title}</h3>
-            <p className="mt-1.5 text-xs leading-relaxed text-pub-muted">{item.body}</p>
+            <div>
+              <p className="font-heading text-lg font-bold text-pub-navy sm:text-xl">{stat.value}</p>
+              <p className="text-xs text-pub-muted sm:text-sm">{stat.label}</p>
+            </div>
           </div>
         ))}
       </div>
@@ -253,7 +231,7 @@ function WhyUs() {
 function FinalCta() {
   const { finalCta } = aboutUs;
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:py-14 lg:py-16 sm:px-6">
+    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-12 sm:px-6">
       <div className="grid gap-8 rounded-2xl bg-pub-navy p-6 text-white sm:p-10 lg:grid-cols-[auto_1fr_auto] lg:items-center">
         <img
           src={aboutCtaHighfiveSrc}

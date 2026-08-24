@@ -13,7 +13,7 @@ import type { ComponentType } from 'react';
 import { Navigate, Link } from 'react-router-dom';
 import { useAuth, HOME_FOR_ROLE } from '../../features/auth/auth-context.js';
 import { PUBLIC_ICONS, type PublicIconKey } from '../../components/icons/public-icons.js';
-import { IllustratedBadge, HeroOrbitBackdrop, RecruitmentDashboardArt } from '../../components/illustrations/public-illustrations.js';
+import { IllustratedBadge, HeroOrbitBackdrop, RecruitmentDashboardArt, HERO_ORBIT } from '../../components/illustrations/public-illustrations.js';
 import { home } from '../../content/site.js';
 import candidateIllustrationSrc from '../../assets/illustrations/candidate-illustration-transparent.png';
 import employerIllustrationSrc from '../../assets/illustrations/employer-illustration-transparent.png';
@@ -59,18 +59,40 @@ function SectionHeading({ eyebrow }: { eyebrow: string }) {
 /* Hero                                                                    */
 /* ---------------------------------------------------------------------- */
 
-/** Node order matches the arc position it is placed at, top → clockwise. */
-const ORBIT_POSITIONS = [
-  'left-1/2 top-0 -translate-x-1/2',
-  'left-[2%] top-[22%]',
-  'right-[2%] top-[22%]',
-  'left-0 top-[65%]',
-  'right-0 top-[65%]',
-];
+/**
+ * Node order matches the arc position it is placed at, top → clockwise.
+ * Positions are computed from the exact same center/radius as the SVG
+ * rings (HERO_ORBIT, in public-illustrations.tsx) so every icon lands
+ * precisely on the outer ring instead of floating near it.
+ */
+const ORBIT_ANGLES_DEG = [90, 140, 40, 165, 15];
 
-function OrbitNode({ icon, label, className }: { icon: PublicIconKey; label: string; className: string }) {
+const ORBIT_NODE_POSITIONS = ORBIT_ANGLES_DEG.map((deg) => {
+  const rad = (deg * Math.PI) / 180;
+  const { cx, cy, outerR } = HERO_ORBIT;
+  // The 200×100 viewBox maps to the container at aspect-[2/1]: 200 units
+  // span 100% of the width (divide by 2), 100 units span 100% of the
+  // height (1:1) — see HERO_ORBIT's doc comment in public-illustrations.tsx.
+  return {
+    left: `${(cx + outerR * Math.cos(rad)) / 2}%`,
+    top: `${cy - outerR * Math.sin(rad)}%`,
+  };
+});
+
+function OrbitNode({
+  icon,
+  label,
+  style,
+}: {
+  icon: PublicIconKey;
+  label: string;
+  style: { left: string; top: string };
+}) {
   return (
-    <div className={`absolute z-10 flex w-28 flex-col items-center gap-2.5 text-center ${className}`}>
+    <div
+      style={style}
+      className="absolute z-10 flex w-28 -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2.5 text-center"
+    >
       <IllustratedBadge size="lg">
         <Icon name={icon} className="size-6" />
       </IllustratedBadge>
@@ -82,27 +104,31 @@ function OrbitNode({ icon, label, className }: { icon: PublicIconKey; label: str
 function Hero() {
   return (
     <section className="relative overflow-hidden border-b border-pub-border bg-white">
-      <div className="relative mx-auto max-w-5xl px-4 pb-14 pt-12 sm:px-6 sm:pt-16">
-        {/* Desktop: full illustrated orbit. Smaller screens fall back to a plain chip grid below. */}
-        <div className="relative mx-auto hidden h-[26rem] max-w-4xl lg:block">
+      <div className="relative mx-auto max-w-6xl px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
+        {/* Desktop: full illustrated orbit. Smaller screens fall back to a plain chip grid below.
+            aspect-[2.4/1] renders HeroOrbitBackdrop's 200×100 viewBox stretched flatter/wider —
+            preserveAspectRatio="none" there applies that exact same stretch, so the ring and the
+            node positions computed below always line up despite the on-screen shape being an
+            ellipse rather than a true circle. */}
+        <div className="relative mx-auto hidden aspect-[2.4/1] w-full max-w-6xl lg:block">
           <HeroOrbitBackdrop />
           {home.hero.chips.map((chip, index) => (
-            <OrbitNode key={chip.label} icon={chip.icon} label={chip.label} className={ORBIT_POSITIONS[index]!} />
+            <OrbitNode key={chip.label} icon={chip.icon} label={chip.label} style={ORBIT_NODE_POSITIONS[index]!} />
           ))}
         </div>
 
-        <div className="relative z-10 mx-auto max-w-2xl text-center lg:-mt-52">
+        <div className="relative z-10 mx-auto max-w-2xl text-center lg:-mt-44">
           <p className="text-xs font-semibold uppercase tracking-widest text-pub-blue">{home.hero.eyebrow}</p>
-          <h1 className="mt-4 font-heading text-3xl font-extrabold leading-tight text-pub-navy sm:text-4xl lg:text-5xl">
+          <h1 className="mt-5 font-heading text-3xl font-extrabold leading-tight text-pub-navy sm:text-4xl lg:text-5xl">
             {home.hero.heading.map((part) => (
               <span key={part.text} className={part.accent ? 'text-pub-blue' : undefined}>
                 {part.text}{' '}
               </span>
             ))}
           </h1>
-          <p className="mx-auto mt-5 max-w-xl text-base text-pub-muted sm:text-lg">{home.hero.body}</p>
+          <p className="mx-auto mt-6 max-w-md text-base text-pub-muted sm:text-lg">{home.hero.body}</p>
 
-          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+          <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
             <Link
               to={home.hero.primaryCta.to}
               className="flex min-h-12 items-center justify-center rounded-lg bg-pub-blue px-6 text-sm font-semibold text-white shadow-sm shadow-pub-blue/30 hover:bg-pub-navy sm:text-base"
@@ -143,20 +169,22 @@ function Hero() {
 
 function Stats() {
   return (
-    <section className="bg-pub-navy">
-      <div className="mx-auto grid max-w-5xl grid-cols-2 gap-y-8 px-4 py-10 sm:px-6 md:grid-cols-4 md:gap-y-0">
+    <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <div className="grid grid-cols-2 gap-y-6 rounded-2xl bg-pub-navy p-6 shadow-lg sm:p-8 md:grid-cols-4 md:gap-y-0">
         {home.stats.map((stat, index) => (
           <div
             key={stat.label}
-            className={`flex flex-col items-center gap-2 text-center md:border-white/15 ${
-              index > 0 ? 'md:border-l' : ''
+            className={`flex items-center justify-center gap-3 text-left md:border-white/15 ${
+              index > 0 ? 'md:border-l md:pl-6' : ''
             }`}
           >
-            <span className="flex size-11 items-center justify-center rounded-full bg-white/10 text-white">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-white">
               <Icon name={stat.icon} className="size-5" />
             </span>
-            <p className="font-heading text-xl font-bold text-white sm:text-2xl">{stat.value}</p>
-            <p className="text-xs text-white/70 sm:text-sm">{stat.label}</p>
+            <div>
+              <p className="font-heading text-xl font-bold text-white sm:text-2xl">{stat.value}</p>
+              <p className="text-xs text-white/70 sm:text-sm">{stat.label}</p>
+            </div>
           </div>
         ))}
       </div>
@@ -170,9 +198,9 @@ function Stats() {
 
 function Audiences() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:py-14 lg:py-16 sm:px-6">
+    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-12 sm:px-6">
       <SectionHeading eyebrow="Who We Serve" />
-      <div className="mt-8 grid gap-6 md:grid-cols-2">
+      <div className="mt-6 grid gap-6 md:grid-cols-2">
         {home.audiences.map((audience, index) => (
           <div
             key={audience.title}
@@ -235,17 +263,24 @@ function Audiences() {
 function StepRow({
   title,
   subtitle,
+  icon,
   steps,
 }: {
   title: string;
   subtitle: string;
+  icon: PublicIconKey;
   steps: readonly { title: string; body: string; icon: PublicIconKey }[];
 }) {
   return (
-    <div className="grid gap-6 rounded-2xl border border-pub-border bg-white p-6 sm:p-7 md:grid-cols-[200px_1fr] md:items-center">
-      <div className="rounded-xl bg-pub-navy p-5 text-white">
-        <h3 className="font-heading text-base font-bold">{title}</h3>
-        <p className="mt-1.5 text-sm text-white/75">{subtitle}</p>
+    <div className="grid gap-6 rounded-2xl border border-pub-border bg-white p-6 sm:p-7 md:grid-cols-[248px_1fr] md:items-center">
+      <div className="flex items-center gap-4 rounded-xl bg-pub-navy p-5 text-white">
+        <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-white/15">
+          <Icon name={icon} className="size-7" />
+        </span>
+        <div>
+          <h3 className="font-heading text-base font-bold">{title}</h3>
+          <p className="mt-1.5 text-sm text-white/75">{subtitle}</p>
+        </div>
       </div>
 
       <div className="relative grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-4">
@@ -267,7 +302,7 @@ function StepRow({
         ))}
         {steps.map((step, index) => (
           <div key={step.title} className="relative z-10 flex flex-col items-center text-center sm:items-start sm:text-left">
-            <IllustratedBadge size="lg">
+            <IllustratedBadge size="lg" tone="outline">
               <Icon name={step.icon} className="size-5" />
             </IllustratedBadge>
             <p className="mt-2.5 text-[10px] font-semibold uppercase tracking-wide text-pub-blue">
@@ -284,18 +319,20 @@ function StepRow({
 
 function HowItWorks() {
   return (
-    <section id="how-it-works" className="scroll-mt-20 bg-pub-bg py-10 sm:py-14 lg:py-16">
+    <section id="how-it-works" className="scroll-mt-20 bg-pub-bg py-8 sm:py-10 lg:py-12">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow="How It Works" />
-        <div className="mt-8 space-y-5">
+        <div className="mt-6 space-y-4">
           <StepRow
             title={home.howItWorksCandidate.title}
             subtitle={home.howItWorksCandidate.subtitle}
+            icon="users"
             steps={home.howItWorksCandidate.steps}
           />
           <StepRow
             title={home.howItWorksEmployer.title}
             subtitle={home.howItWorksEmployer.subtitle}
+            icon="building"
             steps={home.howItWorksEmployer.steps}
           />
         </div>
@@ -310,12 +347,12 @@ function HowItWorks() {
 
 function WhyUs() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:py-14 lg:py-16 sm:px-6">
+    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-12 sm:px-6">
       <SectionHeading eyebrow="Why BK Talent Connect" />
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {home.whyUs.map((item) => (
           <div key={item.title} className="rounded-xl border border-pub-border bg-white p-5 text-center transition-all duration-200 hover:-translate-y-1 hover:border-pub-blue/40 hover:shadow-md">
-            <IllustratedBadge size="lg" className="mx-auto">
+            <IllustratedBadge size="lg" tone="outline" className="mx-auto">
               <Icon name={item.icon} className="size-6" />
             </IllustratedBadge>
             <h3 className="mt-3 font-heading text-sm font-bold text-pub-navy">{item.title}</h3>
@@ -333,15 +370,13 @@ function WhyUs() {
 
 function Industries() {
   return (
-    <section id="industries" className="scroll-mt-20 bg-white py-10 sm:py-14 lg:py-16">
+    <section id="industries" className="scroll-mt-20 bg-white py-8 sm:py-10 lg:py-12">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow="Industries We Serve" />
-        <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-6 rounded-2xl border border-pub-border bg-white p-6 sm:grid-cols-3 sm:p-8 lg:grid-cols-6">
+        <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-6 rounded-2xl border border-pub-border bg-white p-6 sm:grid-cols-3 sm:p-8 lg:grid-cols-6 lg:gap-y-0 lg:divide-x lg:divide-pub-border">
           {home.industries.map((industry) => (
-            <div key={industry.name} className="flex flex-col items-center gap-2.5 text-center">
-              <span className="flex size-11 items-center justify-center rounded-lg bg-pub-bg text-pub-navy">
-                <Icon name={industry.icon} className="size-5" />
-              </span>
+            <div key={industry.name} className="flex flex-col items-center gap-2.5 text-center lg:px-2">
+              <Icon name={industry.icon} className="size-7 text-pub-blue" />
               <span className="text-xs font-medium leading-tight text-pub-navy">{industry.name}</span>
             </div>
           ))}
@@ -357,8 +392,8 @@ function Industries() {
 
 function Approach() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:py-14 lg:py-16 sm:px-6">
-      <div className="grid gap-10 rounded-2xl bg-pub-blue-light p-6 sm:p-10 lg:grid-cols-2 lg:items-center">
+    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-12 sm:px-6">
+      <div className="grid gap-8 rounded-2xl bg-pub-blue-light p-6 sm:p-8 lg:grid-cols-2 lg:items-center">
         <div>
           <h2 className="font-heading text-2xl font-bold leading-tight text-pub-navy sm:text-3xl">
             {home.approach.heading.map((part) => (
@@ -391,11 +426,11 @@ function Approach() {
 function ContactBand() {
   const { contact } = home;
   return (
-    <section id="contact" className="scroll-mt-20 bg-white py-10 sm:py-14 lg:py-16">
+    <section id="contact" className="scroll-mt-20 bg-white py-8 sm:py-10 lg:py-12">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="grid gap-8 rounded-2xl bg-pub-navy p-6 text-white sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center">
           <h2 className="font-heading text-xl font-bold sm:text-2xl">{contact.heading}</h2>
-          <div className="grid gap-3 sm:grid-cols-3 lg:w-[38rem]">
+          <div className="grid gap-3 sm:grid-cols-3 lg:w-[46rem]">
             <ContactTile {...contact.whatsapp} />
             <ContactTile {...contact.email} />
             <ContactTile {...contact.phone} />
@@ -418,21 +453,28 @@ function ContactTile({
   icon: PublicIconKey;
 }) {
   const isPlaceholder = value.startsWith('[TBC');
+  // WhatsApp keeps its recognizable brand green (matches the floating CTA
+  // elsewhere on the site); every other channel stays on the blue system.
+  const isWhatsApp = icon === 'whatsapp';
   return (
     <a
       href={href}
       aria-disabled={isPlaceholder || undefined}
       onClick={isPlaceholder ? (event) => event.preventDefault() : undefined}
-      className={`flex min-w-0 items-start gap-2.5 rounded-xl border border-white/15 bg-white/5 p-3 text-sm ${
-        isPlaceholder ? 'cursor-default opacity-70' : 'hover:bg-white/10'
+      className={`flex min-w-0 items-center gap-3 rounded-xl bg-white p-3 text-sm shadow-sm transition-all duration-200 ${
+        isPlaceholder ? 'cursor-default opacity-70' : 'hover:-translate-y-0.5 hover:shadow-md'
       }`}
     >
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/10">
+      <span
+        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${
+          isWhatsApp ? 'bg-emerald-50 text-emerald-600' : 'bg-pub-blue-light text-pub-blue'
+        }`}
+      >
         <Icon name={icon} className="size-4" />
       </span>
       <span className="min-w-0 flex-1">
-        <p className="font-medium text-white">{label}</p>
-        <p className="mt-0.5 break-words text-xs text-white/70">{value}</p>
+        <p className="font-semibold text-pub-navy">{label}</p>
+        <p className="mt-0.5 break-words text-xs text-pub-muted">{value}</p>
       </span>
     </a>
   );

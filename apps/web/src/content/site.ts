@@ -397,11 +397,6 @@ export const aboutUs = {
     heading: 'Creating meaningful connections that build the future.',
   },
 
-  whyUs: {
-    eyebrow: 'Why Us',
-    heading: 'Why choose BK Talent Connect',
-  },
-
   finalCta: {
     heading: "Let's build what's next.",
     body: 'Whether you are hiring top talent or looking for the right opportunity, we are here to help.',

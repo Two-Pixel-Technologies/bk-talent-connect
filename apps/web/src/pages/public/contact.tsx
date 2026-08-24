@@ -59,7 +59,7 @@ function Hero() {
         aria-hidden="true"
         className="absolute -top-24 right-0 h-80 w-80 rounded-full bg-pub-blue-light blur-3xl"
       />
-      <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-2 lg:items-center lg:py-16">
+      <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-2 lg:items-center lg:py-12">
         <div className="text-center lg:text-left">
           <p className="text-xs font-semibold uppercase tracking-widest text-pub-blue">{hero.eyebrow}</p>
           <h1 className="mt-3 font-heading text-3xl font-extrabold leading-tight text-pub-navy sm:text-4xl lg:text-5xl">
@@ -99,10 +99,10 @@ function Hero() {
 function HelpStrip() {
   const { helpStrip } = contactPage;
   return (
-    <section className="bg-pub-bg py-10 sm:py-14 lg:py-16">
+    <section className="bg-pub-bg py-8 sm:py-10 lg:py-12">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow={helpStrip.eyebrow} title={helpStrip.heading} />
-        <div className="mt-10 grid gap-4 sm:grid-cols-3">
+        <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {helpStrip.items.map((item) => (
             <div
               key={item.title}
@@ -127,7 +127,7 @@ function HelpStrip() {
 
 function ContactCards() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:py-16">
+    <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10 lg:py-12">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {contactPage.cards.map((card) => {
           const external = card.href.startsWith('http');
@@ -218,7 +218,7 @@ function EnquiryFormSection() {
   const busy = status === 'busy';
 
   return (
-    <section className="bg-pub-bg py-10 sm:py-14 lg:py-16">
+    <section className="bg-pub-bg py-8 sm:py-10 lg:py-12">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-[1.3fr_1fr] lg:items-start">
         <div className="rounded-2xl border border-pub-border bg-white p-6 shadow-md sm:p-8">
           <div className="flex items-center gap-3">
@@ -368,7 +368,7 @@ function EnquiryFormSection() {
 function FinalCta() {
   const { finalCta } = contactPage;
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
+    <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
       <div className="flex flex-col items-center gap-4 rounded-2xl bg-pub-navy p-6 text-center text-white shadow-lg sm:flex-row sm:justify-between sm:p-7 sm:text-left">
         <h2 className="font-heading text-lg font-bold sm:text-xl">{finalCta.heading}</h2>
         <div className="flex flex-col gap-3 sm:flex-row">

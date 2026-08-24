@@ -74,16 +74,26 @@ const BADGE_SIZE = {
 export function IllustratedBadge({
   children,
   size = 'md',
+  tone = 'filled',
   className = '',
 }: {
   children: ReactNode;
   size?: keyof typeof BADGE_SIZE;
+  /** 'filled': solid navy/blue gradient, white icon (hero orbit, audience cards).
+   *  'outline': white circle with a thin blue ring and a blue icon — the
+   *  lighter treatment used by How It Works and Why Us. */
+  tone?: 'filled' | 'outline';
   className?: string;
 }) {
+  const filled = tone === 'filled';
   return (
     <span
-      className={`flex ${BADGE_SIZE[size]} shrink-0 items-center justify-center rounded-full text-white shadow-lg shadow-pub-navy/25 ring-4 ring-white ${className}`}
-      style={{ background: 'radial-gradient(circle at 30% 25%, var(--color-pub-blue), var(--color-pub-navy) 78%)' }}
+      className={`flex ${BADGE_SIZE[size]} shrink-0 items-center justify-center rounded-full ${
+        filled
+          ? 'text-white shadow-lg shadow-pub-navy/25 ring-4 ring-white'
+          : 'border-2 border-pub-blue-light bg-white text-pub-blue'
+      } ${className}`}
+      style={filled ? { background: 'radial-gradient(circle at 30% 25%, var(--color-pub-blue), var(--color-pub-navy) 78%)' } : undefined}
     >
       {children}
     </span>
@@ -96,15 +106,45 @@ export function IllustratedBadge({
 /* by the caller so they stay accessible text rather than SVG glyphs.      */
 /* ---------------------------------------------------------------------- */
 
+/**
+ * The dome's geometry, shared between the SVG ring drawn here and the HTML
+ * node positions computed in home.tsx (ORBIT_NODE_POSITIONS) — both read
+ * off this same center/radius so the icon nodes always land exactly on the
+ * ring, at any width. The viewBox is a 200×100 semicircle, but the caller's
+ * container is intentionally wider than 2:1 (a flatter dome), rendered with
+ * `preserveAspectRatio="none"` — an even, known stretch that both this SVG
+ * and home.tsx's percentage math apply identically, so nothing drifts out
+ * of alignment even though the on-screen shape is an ellipse, not a circle.
+ */
+export const HERO_ORBIT = { cx: 100, cy: 100, outerR: 82 } as const;
+
+/** Where the arc starts and ends — the lower-left and lower-right node
+ * angles (must match home.tsx's ORBIT_ANGLES_DEG: [90, 140, 40, 165, 15]),
+ * so the line runs exactly from Managed Process to End-to-End Support with
+ * nothing extending past either node. */
+const ORBIT_ARC_START_DEG = 165;
+const ORBIT_ARC_END_DEG = 15;
+
+/** Angles (degrees) of the small dots marking the midpoint between each
+ * pair of adjacent icon nodes — the four gaps between the five nodes above. */
+const ORBIT_DOT_ANGLES_DEG = [27.5, 65, 115, 152.5];
+
+function pointOnOrbit(deg: number) {
+  const { cx, cy, outerR } = HERO_ORBIT;
+  const rad = (deg * Math.PI) / 180;
+  return { x: cx + outerR * Math.cos(rad), y: cy - outerR * Math.sin(rad) };
+}
+
 export function HeroOrbitBackdrop({ className = '' }: { className?: string }) {
-  const center = { x: 450, y: 430 };
-  const spokeAngles = [200, 215, 230, 250, 270, 290, 310, 325, 340];
+  const { cx, cy, outerR } = HERO_ORBIT;
+  const start = pointOnOrbit(ORBIT_ARC_START_DEG);
+  const end = pointOnOrbit(ORBIT_ARC_END_DEG);
 
   return (
     <svg
       aria-hidden="true"
-      viewBox="0 0 900 440"
-      preserveAspectRatio="xMidYMax meet"
+      viewBox="0 0 200 100"
+      preserveAspectRatio="none"
       className={`pointer-events-none absolute inset-0 h-full w-full ${className}`}
     >
       <defs>
@@ -114,38 +154,24 @@ export function HeroOrbitBackdrop({ className = '' }: { className?: string }) {
         </radialGradient>
       </defs>
 
-      <circle cx={center.x} cy={center.y} r="380" fill="url(#pubHeroGlow)" />
+      <ellipse cx={cx} cy={cy} rx="96" ry="82" fill="url(#pubHeroGlow)" />
 
-      {spokeAngles.map((deg) => {
-        const rad = (deg * Math.PI) / 180;
-        const outer = { x: center.x + 380 * Math.cos(rad), y: center.y + 380 * Math.sin(rad) };
-        const inner = { x: center.x + 150 * Math.cos(rad), y: center.y + 150 * Math.sin(rad) };
-        return (
-          <line
-            key={deg}
-            x1={inner.x}
-            y1={inner.y}
-            x2={outer.x}
-            y2={outer.y}
-            stroke="var(--color-pub-border)"
-            strokeWidth="1"
-          />
-        );
+      {/* One clean arc — a thin, subtle solid line, not dashed/dotted —
+          running only from the Managed Process node to the End-to-End
+          Support node, not a full semicircle past them. */}
+      <path
+        d={`M ${start.x} ${start.y} A ${outerR} ${outerR} 0 0 1 ${end.x} ${end.y}`}
+        fill="none"
+        stroke="var(--color-pub-blue)"
+        strokeOpacity="0.28"
+        strokeWidth="0.45"
+      />
+
+      {/* Small dots marking the arc between nodes. */}
+      {ORBIT_DOT_ANGLES_DEG.map((deg) => {
+        const p = pointOnOrbit(deg);
+        return <circle key={deg} cx={p.x} cy={p.y} r="1.4" fill="var(--color-pub-blue)" fillOpacity="0.55" />;
       })}
-
-      {[222, 312, 398].map((r) => (
-        <circle
-          key={r}
-          cx={center.x}
-          cy={center.y}
-          r={r}
-          fill="none"
-          stroke="var(--color-pub-blue)"
-          strokeOpacity="0.38"
-          strokeWidth="1.5"
-          strokeDasharray="1 8"
-        />
-      ))}
     </svg>
   );
 }
@@ -212,8 +238,14 @@ export function RecruitmentDashboardArt({
               strokeLinecap="round"
             />
             <rect x="100" y={y + 12} width="70" height="6" rx="3" fill="var(--color-pub-navy)" opacity="0.65" />
-            <rect x="100" y={y + 24} width="34" height="10" rx="5" fill="var(--color-pub-blue-light)" />
-            <rect x="138" y={y + 24} width="34" height="10" rx="5" fill="var(--color-pub-blue-light)" />
+            {[0, 1, 2, 3, 4].map((star) => (
+              <path
+                key={star}
+                d="M0,-4 1.18,-1.24 4,-1.24 1.76,0.76 2.94,4 0,1.5 -2.94,4 -1.76,0.76 -4,-1.24 -1.18,-1.24Z"
+                transform={`translate(${104 + star * 11} ${y + 29})`}
+                fill={star < 4 ? 'var(--color-pub-blue)' : 'var(--color-pub-border)'}
+              />
+            ))}
             <rect x="240" y={y + 15} width="46" height="16" rx="8" fill={STAGE_FILL[row.tone]} />
           </g>
         );
@@ -223,6 +255,12 @@ export function RecruitmentDashboardArt({
       <g transform="translate(346 40)">
         <ellipse cx="0" cy="0" rx="7" ry="16" fill="var(--color-pub-blue)" transform="rotate(20 0 0)" />
         <ellipse cx="6" cy="4" rx="5" ry="12" fill="var(--color-pub-blue-light)" transform="rotate(-25 6 4)" />
+      </g>
+
+      {/* verified badge, overlapping the card's bottom-right corner */}
+      <g transform="translate(308 246)">
+        <circle r="20" fill="var(--color-pub-blue)" stroke="white" strokeWidth="4" />
+        <path d="m-8 1 5.5 5.5 11 -12" stroke="white" strokeWidth="3.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </g>
     </svg>
   );
