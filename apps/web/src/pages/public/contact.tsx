@@ -60,7 +60,7 @@ function Hero() {
         className="absolute -top-24 right-0 h-80 w-80 rounded-full bg-pub-blue-light blur-3xl"
       />
       <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-2 lg:items-center lg:py-12">
-        <div className="text-center lg:text-left">
+        <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-pub-blue">{hero.eyebrow}</p>
           <h1 className="mt-3 font-heading text-3xl font-extrabold leading-tight text-pub-navy sm:text-4xl lg:text-5xl">
             {hero.heading.map((part) => (
@@ -69,15 +69,13 @@ function Hero() {
               </span>
             ))}
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-pub-muted sm:text-base lg:mx-0">
-            {hero.body}
-          </p>
+          <p className="mt-4 max-w-xl text-sm leading-relaxed text-pub-muted sm:text-base">{hero.body}</p>
 
-          <ul className="mx-auto mt-6 flex max-w-md flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:justify-center lg:mx-0 lg:justify-start">
+          <ul className="mt-6 flex max-w-md flex-col gap-2.5 sm:flex-row sm:flex-wrap">
             {hero.highlights.map((item) => (
               <li
                 key={item.label}
-                className="flex items-center justify-center gap-2 rounded-full border border-pub-border bg-pub-bg px-3.5 py-2 text-xs font-medium text-pub-navy sm:justify-start"
+                className="flex items-center justify-start gap-2 rounded-full border border-pub-border bg-pub-bg px-3.5 py-2 text-xs font-medium text-pub-navy"
               >
                 <Icon name={item.icon} className="size-4 text-pub-blue" />
                 {item.label}

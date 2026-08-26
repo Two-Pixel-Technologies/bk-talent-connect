@@ -80,16 +80,18 @@ function OrbitNode({
   center?: boolean;
 }) {
   return (
-    <div className={`absolute flex w-28 flex-col items-center gap-2 text-center ${className}`}>
+    <div className={`absolute flex w-20 flex-col items-center gap-1.5 text-center sm:w-28 sm:gap-2 ${className}`}>
       <span
         className={`flex items-center justify-center rounded-full shadow-md ring-1 ring-black/5 ${
-          center ? 'size-20 text-white shadow-lg' : 'size-14 bg-white text-[#2563EB]'
+          center ? 'size-14 text-white shadow-lg sm:size-20' : 'size-11 bg-white text-[#2563EB] sm:size-14'
         }`}
         style={center ? { background: HERO_BLUE } : undefined}
       >
-        <Icon name={icon} className={center ? 'size-9' : 'size-6'} />
+        <Icon name={icon} className={center ? 'size-6 sm:size-9' : 'size-5 sm:size-6'} />
       </span>
-      <span className={`text-xs font-semibold leading-tight ${center ? 'text-[#0A2E73]' : 'text-pub-navy'}`}>
+      <span
+        className={`text-[10px] font-semibold leading-tight sm:text-xs ${center ? 'text-[#0A2E73]' : 'text-pub-navy'}`}
+      >
         {label}
       </span>
     </div>

@@ -118,9 +118,16 @@ function Story() {
           <span aria-hidden="true" className="mt-3 block h-1 w-14 rounded-full bg-pub-blue" />
           <p className="mt-4 text-sm leading-relaxed text-pub-muted sm:text-base">{story.body}</p>
 
-          <div className="mt-6 flex flex-wrap gap-8">
-            {story.stats.map((stat) => (
-              <div key={stat.label}>
+          <div className="mt-6 grid max-w-sm grid-cols-2 gap-4 sm:max-w-none sm:flex sm:flex-wrap sm:gap-8">
+            {story.stats.map((stat, index) => (
+              <div
+                key={stat.label}
+                className={`rounded-xl border border-pub-border bg-white p-4 shadow-sm sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none ${
+                  story.stats.length % 2 === 1 && index === story.stats.length - 1
+                    ? 'col-span-2 mx-auto w-1/2 min-w-[8rem]'
+                    : ''
+                }`}
+              >
                 <p className="font-heading text-2xl font-bold text-pub-navy">{stat.value}</p>
                 <p className="text-xs text-pub-muted sm:text-sm">{stat.label}</p>
               </div>

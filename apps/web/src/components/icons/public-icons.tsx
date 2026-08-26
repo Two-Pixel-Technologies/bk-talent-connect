@@ -308,6 +308,90 @@ export function IconLinkedin(props: IconProps) {
   );
 }
 
+/** A simple "f" monogram badge — not a reproduction of any brand mark. */
+export function IconFacebook(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="3.5" />
+      <path d="M13.8 20.5v-6.2h2.1l.3-2.5h-2.4v-1.6c0-.72.2-1.2 1.23-1.2h1.31V6.77c-.23-.03-1-.1-1.9-.1-1.9 0-3.2 1.16-3.2 3.28v1.83H9.1v2.5h2.14v6.2Z" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** A simple camera-outline badge — not a reproduction of any brand mark. */
+export function IconInstagram(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="16.3" cy="7.7" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/* Branded social icons — footer-only. Unlike the hand-drawn outline set    */
+/* above, these are deliberately recognizable brand marks (own colors,     */
+/* own shapes) because that's what makes a row of social buttons legible.  */
+/* ---------------------------------------------------------------------- */
+
+export function BrandLinkedin(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 32 32" {...props}>
+      <rect width="32" height="32" rx="6" fill="#0A66C2" />
+      <path
+        fill="#fff"
+        d="M8.9 12.7h3.6v11.4H8.9zm1.8-5.8a2.1 2.1 0 1 1 0 4.2 2.1 2.1 0 0 1 0-4.2zM14.9 12.7h3.4v1.6h.05c.48-.9 1.65-1.85 3.4-1.85 3.64 0 4.31 2.4 4.31 5.52v6.17h-3.6v-5.47c0-1.3-.02-2.98-1.82-2.98-1.82 0-2.1 1.42-2.1 2.88v5.57h-3.6z"
+      />
+    </svg>
+  );
+}
+
+export function BrandFacebook(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 32 32" {...props}>
+      <circle cx="16" cy="16" r="16" fill="#1877F2" />
+      <path
+        fill="#fff"
+        d="M20.4 16.5h-3v9.3h-3.8v-9.3h-2.1v-3.2h2.1v-2.1c0-2.6 1.1-4.2 4.2-4.2h2.6v3.2h-1.6c-1.2 0-1.3.45-1.3 1.3v1.8h3z"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Instagram's official glyph: the documented radial brand gradient
+ * (center low-left, yellow -> orange -> magenta -> blue) behind the
+ * standard rounded-square camera outline, lens ring, and flash dot.
+ */
+export function BrandInstagram(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 32 32" {...props}>
+      <defs>
+        <radialGradient id="ig-brand-grad" cx="30%" cy="107%" r="140%">
+          <stop offset="0%" stopColor="#FFDC80" />
+          <stop offset="10%" stopColor="#FDF497" />
+          <stop offset="45%" stopColor="#FD5949" />
+          <stop offset="60%" stopColor="#D6249F" />
+          <stop offset="90%" stopColor="#285AEB" />
+        </radialGradient>
+      </defs>
+      <rect width="32" height="32" rx="9" fill="url(#ig-brand-grad)" />
+      <rect x="8.5" y="8.5" width="15" height="15" rx="5.5" fill="none" stroke="#fff" strokeWidth="2" />
+      <circle cx="16" cy="16" r="4.2" fill="none" stroke="#fff" strokeWidth="2" />
+      <circle cx="21.3" cy="10.7" r="1.3" fill="#fff" />
+    </svg>
+  );
+}
+
+export const PUBLIC_SOCIAL_ICONS = {
+  linkedin: BrandLinkedin,
+  facebook: BrandFacebook,
+  instagram: BrandInstagram,
+} satisfies Record<string, (props: SVGProps<SVGSVGElement>) => ReactElement>;
+
+export type PublicSocialIconKey = keyof typeof PUBLIC_SOCIAL_ICONS;
+
 /** Lookup used by content/site.ts so copy can name an icon by key. */
 export const PUBLIC_ICONS = {
   shieldCheck: IconShieldCheck,
@@ -338,6 +422,8 @@ export const PUBLIC_ICONS = {
   image: IconImage,
   linkedin: IconLinkedin,
   whatsapp: IconWhatsapp,
+  facebook: IconFacebook,
+  instagram: IconInstagram,
 } satisfies Record<string, (props: IconProps) => ReactElement>;
 
 export type PublicIconKey = keyof typeof PUBLIC_ICONS;

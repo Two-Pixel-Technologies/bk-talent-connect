@@ -146,14 +146,21 @@ function Hero() {
 
         {/* Mobile / tablet fallback for the orbit nodes. */}
         <div className="mx-auto mt-10 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-3 lg:hidden">
-          {home.hero.chips.map((chip) => (
+          {home.hero.chips.map((chip, index) => (
             <div
               key={chip.label}
-              className="flex flex-col items-center gap-2 rounded-xl border border-pub-border bg-pub-bg px-3 py-4 text-center"
+              className={`flex flex-col items-center gap-2 rounded-xl border border-pub-border bg-pub-bg px-3 py-4 text-center ${
+                index === 4 ? 'col-span-2 mx-auto w-1/2 min-w-[9rem] sm:col-span-1 sm:mx-0 sm:w-auto sm:min-w-0' : ''
+              }`}
             >
-              <IllustratedBadge size="md">
-                <Icon name={chip.icon} className="size-4" />
-              </IllustratedBadge>
+              {/* Mobile only: plain blue outline icon, no circular backing.
+                  Tablet/desktop keep the existing filled IllustratedBadge untouched. */}
+              <Icon name={chip.icon} className="size-7 text-pub-blue sm:hidden" />
+              <span className="hidden sm:flex">
+                <IllustratedBadge size="md">
+                  <Icon name={chip.icon} className="size-4" />
+                </IllustratedBadge>
+              </span>
               <span className="text-xs font-medium text-pub-navy">{chip.label}</span>
             </div>
           ))}

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { PUBLIC_SOCIAL_ICONS } from '../../components/icons/public-icons.js';
 import { publicFooter } from '../../content/site.js';
 
 export function PublicFooter() {
@@ -14,16 +15,19 @@ export function PublicFooter() {
           </div>
           <p className="mt-3 max-w-xs text-sm leading-relaxed">{publicFooter.blurb}</p>
           <div className="mt-5 flex gap-2">
-            {publicFooter.social.map((item) => (
-              <a
-                key={item.label}
-                href={item.href}
-                aria-label={item.label}
-                className="flex size-9 items-center justify-center rounded-full border border-white/20 text-xs font-semibold text-white/80 hover:bg-white/10"
-              >
-                {item.short}
-              </a>
-            ))}
+            {publicFooter.social.map((item) => {
+              const SocialIcon = PUBLIC_SOCIAL_ICONS[item.icon];
+              return (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  aria-label={item.label}
+                  className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/20 hover:bg-white/10"
+                >
+                  <SocialIcon className="size-5" />
+                </a>
+              );
+            })}
           </div>
         </div>
 

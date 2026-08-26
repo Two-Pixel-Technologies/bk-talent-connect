@@ -12,7 +12,7 @@
  * describes what the portal does today.
  */
 
-import type { PublicIconKey } from '../components/icons/public-icons.js';
+import type { PublicIconKey, PublicSocialIconKey } from '../components/icons/public-icons.js';
 
 export const home = {
   hero: {
@@ -508,8 +508,8 @@ export const publicFooter = {
     },
   ],
   social: [
-    { label: 'LinkedIn', short: 'in', href: 'https://www.linkedin.com/company/bk-talent-connect' },
-    { label: 'Facebook', short: 'f', href: '#' },
-    { label: 'Instagram', short: 'ig', href: '#' },
+    { label: 'LinkedIn', icon: 'linkedin' as PublicSocialIconKey, href: 'https://www.linkedin.com/company/bk-talent-connect' },
+    { label: 'Facebook', icon: 'facebook' as PublicSocialIconKey, href: '#' },
+    { label: 'Instagram', icon: 'instagram' as PublicSocialIconKey, href: '#' },
   ],
 } as const;
