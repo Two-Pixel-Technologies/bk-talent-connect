@@ -17,9 +17,11 @@ import {
   ScreeningArt,
   GrowthChartArt,
   EmployerDashboardArt,
-  TargetAvatarsArt,
+  IllustrationGlow,
+  DotCluster,
 } from '../../components/illustrations/public-illustrations.js';
 import { home, forEmployers } from '../../content/site.js';
+import employerTargetSrc from '../../assets/illustrations/employer-target-transparent.png';
 
 type IconComp = ComponentType<{ className: string }>;
 
@@ -36,7 +38,7 @@ const ART: Record<'verifiedTalent' | 'screening' | 'growth', ComponentType<{ cla
 
 export function ForEmployersPage() {
   return (
-    <main className="overflow-x-clip">
+    <main className="public-site employers-public overflow-x-clip">
       <Hero />
       <Stats />
       <WhyChoose />
@@ -198,7 +200,7 @@ function Hero() {
 function Stats() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <div className="grid grid-cols-2 gap-y-6 rounded-2xl border border-pub-border bg-white p-6 shadow-sm sm:p-8 md:grid-cols-4 md:gap-y-0">
+      <div className="grid grid-cols-2 gap-y-6 rounded-2xl border border-pub-border bg-gradient-to-br from-white to-pub-blue-light/20 p-6 shadow-sm sm:p-8 md:grid-cols-4 md:gap-y-0">
         {home.stats.map((stat, index) => (
           <div
             key={stat.label}
@@ -224,19 +226,25 @@ function Stats() {
 
 function WhyChoose() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-12 sm:px-6">
-      <SectionHeading eyebrow="Why Employers Choose Us" title="A better way to hire" />
-      <div className="mt-8 grid gap-8 divide-y divide-pub-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-        {forEmployers.whyChoose.map((item) => {
-          const Art = ART[item.art];
-          return (
-            <div key={item.title} className="flex flex-col items-center px-4 pt-8 text-center first:pt-0 sm:pt-0">
-              <Art className="h-32 w-auto" />
-              <h3 className="mt-4 font-heading text-base font-bold text-pub-navy">{item.title}</h3>
-              <p className="mt-1.5 max-w-[15rem] text-sm leading-relaxed text-pub-muted">{item.body}</p>
-            </div>
-          );
-        })}
+    <section className="relative overflow-hidden bg-white py-8 sm:py-10 lg:py-10">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-20 left-1/2 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-pub-blue-light/50 blur-3xl"
+      />
+      <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+        <SectionHeading eyebrow="Why Employers Choose Us" title="A better way to hire" />
+        <div className="mt-8 grid gap-8 divide-y divide-pub-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          {forEmployers.whyChoose.map((item) => {
+            const Art = ART[item.art];
+            return (
+              <div key={item.title} className="flex flex-col items-center px-4 pt-8 text-center first:pt-0 sm:pt-0">
+                <Art className="h-32 w-auto" />
+                <h3 className="mt-4 font-heading text-base font-bold text-pub-navy">{item.title}</h3>
+                <p className="mt-1.5 max-w-[15rem] text-sm leading-relaxed text-pub-muted">{item.body}</p>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
@@ -249,21 +257,26 @@ function WhyChoose() {
 function HowItWorks() {
   const steps = forEmployers.howItWorks.steps;
   return (
-    <section id="how-it-works" className="scroll-mt-20 bg-pub-bg py-8 sm:py-10 lg:py-12">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+    <section id="how-it-works" className="scroll-mt-20 relative overflow-hidden bg-pub-bg py-8 sm:py-10 lg:py-10">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-24 top-0 h-64 w-64 rounded-full bg-pub-blue-light/60 blur-3xl"
+      />
+      <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow="How It Works" title={forEmployers.howItWorks.title} />
 
-        <div className="relative mt-8 grid grid-cols-2 gap-x-4 gap-y-8 rounded-2xl border border-pub-border bg-white p-6 sm:p-8 md:grid-cols-5">
+        <div className="process-flow relative mt-8 grid grid-cols-1 gap-x-4 gap-y-8 rounded-2xl border border-pub-border bg-gradient-to-br from-white to-pub-blue-light/30 p-6 shadow-sm sm:p-8 md:grid-cols-5">
           <div
             aria-hidden="true"
-            className="absolute inset-x-10 top-[52px] hidden border-t-2 border-dashed border-pub-blue/30 md:block"
+            className="absolute top-[60px] hidden border-t border-pub-blue/35 md:block"
+            style={{ left: 'calc(2rem + (100% - 8rem) / 10)', right: 'calc(2rem + (100% - 8rem) / 10)' }}
           />
           {[20, 40, 60, 80].map((left) => (
             <span
               key={left}
               aria-hidden="true"
               style={{ left: `${left}%` }}
-              className="absolute top-[52px] z-10 hidden size-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center text-pub-blue md:flex"
+              className="absolute top-[60px] z-10 hidden size-4 -translate-x-1/2 -translate-y-1/2 items-center justify-center text-pub-blue md:flex"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="size-3">
                 <path d="m9 6 6 6-6 6" />
@@ -271,7 +284,7 @@ function HowItWorks() {
             </span>
           ))}
           {steps.map((step, index) => (
-            <div key={step.title} className="relative z-10 flex flex-col items-center text-center">
+            <div key={step.title} className="process-step relative z-10 flex flex-col items-center text-center">
               <IllustratedBadge size="lg" tone="outline">
                 <Icon name={step.icon} className="size-5" />
               </IllustratedBadge>
@@ -295,15 +308,24 @@ function HowItWorks() {
 function WhatYouCanDo() {
   const { whatYouCanDo } = forEmployers;
   return (
-    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-12 sm:px-6">
-      <SectionHeading eyebrow="What You Can Do" title={whatYouCanDo.heading} />
-      <div className="mt-8 grid gap-10 lg:grid-cols-2 lg:items-center">
-        <EmployerDashboardArt
-          counts={whatYouCanDo.dashboard.counts}
-          rows={whatYouCanDo.dashboard.rows}
-          className="mx-auto h-auto w-full max-w-md"
-        />
-        <div className="grid gap-6 sm:grid-cols-2">
+    <section className="relative overflow-hidden bg-gradient-to-b from-pub-blue-light/40 via-white to-white py-8 sm:py-10 lg:py-10">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-24 top-10 h-72 w-72 rounded-full bg-pub-blue-light/50 blur-3xl"
+      />
+      <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+        <SectionHeading eyebrow="What You Can Do" title={whatYouCanDo.heading} />
+        <div className="mt-8 grid gap-10 lg:grid-cols-2 lg:items-center">
+          <div className="relative mx-auto w-full max-w-md">
+            <IllustrationGlow className="inset-6" />
+            <DotCluster className="left-0 top-0 h-14 w-16" />
+            <EmployerDashboardArt
+              counts={whatYouCanDo.dashboard.counts}
+              rows={whatYouCanDo.dashboard.rows}
+              className="relative mx-auto h-auto w-full"
+            />
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2">
           {whatYouCanDo.items.map((item) => (
             <div key={item.title} className="flex items-start gap-3">
               <IllustratedBadge size="md" tone="outline">
@@ -315,6 +337,7 @@ function WhatYouCanDo() {
               </div>
             </div>
           ))}
+          </div>
         </div>
       </div>
     </section>
@@ -327,10 +350,14 @@ function WhatYouCanDo() {
 
 function Industries() {
   return (
-    <section id="industries" className="scroll-mt-20 bg-pub-bg py-8 sm:py-10 lg:py-12">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+    <section id="industries" className="scroll-mt-20 relative overflow-hidden bg-pub-bg py-8 sm:py-10 lg:py-10">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-16 top-0 h-56 w-56 rounded-full bg-pub-blue-light/40 blur-3xl"
+      />
+      <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow="Industries We Serve" title="Roles we help you fill" />
-        <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-6 rounded-2xl border border-pub-border bg-white p-6 sm:grid-cols-3 sm:p-8 lg:grid-cols-6 lg:gap-y-0 lg:divide-x lg:divide-pub-border">
+        <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-6 rounded-2xl border border-pub-border bg-white p-6 shadow-sm sm:grid-cols-3 sm:p-8 lg:grid-cols-6 lg:gap-y-0 lg:divide-x lg:divide-pub-border">
           {home.industries.map((industry) => (
             <div key={industry.name} className="flex flex-col items-center gap-2.5 text-center lg:px-2">
               <Icon name={industry.icon} className="size-7 text-pub-blue" />
@@ -350,10 +377,16 @@ function Industries() {
 function FinalCta() {
   const { finalCta } = forEmployers;
   return (
-    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-12 sm:px-6">
-      <div className="grid gap-8 rounded-2xl bg-pub-blue-light p-6 sm:p-10 lg:grid-cols-[auto_1fr_auto] lg:items-center">
-        <TargetAvatarsArt className="mx-auto h-32 w-32 sm:h-40 sm:w-40" />
-        <div>
+    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-10 sm:px-6">
+      <div className="relative grid gap-8 overflow-hidden rounded-2xl bg-pub-blue-light p-6 sm:p-10 lg:grid-cols-[auto_1fr_auto] lg:items-center">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/40 blur-3xl" />
+        <img
+          src={employerTargetSrc}
+          alt=""
+          aria-hidden="true"
+          className="relative mx-auto h-32 w-48 object-contain sm:h-40 sm:w-60"
+        />
+        <div className="relative">
           <h2 className="font-heading text-2xl font-bold text-pub-navy sm:text-3xl">{finalCta.heading}</h2>
           <p className="mt-2 max-w-md text-sm text-pub-muted sm:text-base">{finalCta.body}</p>
         </div>

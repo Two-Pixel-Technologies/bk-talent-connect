@@ -16,8 +16,9 @@ import { Link } from 'react-router-dom';
 import type { EnquiryType } from '@bktc/shared';
 import { api } from '../../lib/api-client.js';
 import { PUBLIC_ICONS, type PublicIconKey } from '../../components/icons/public-icons.js';
-import { IllustratedBadge, ContactChatArt } from '../../components/illustrations/public-illustrations.js';
+import { IllustratedBadge, ContactChatArt, IllustrationGlow, DotCluster } from '../../components/illustrations/public-illustrations.js';
 import { contactPage } from '../../content/site.js';
+import contactHeroSupportSrc from '../../assets/illustrations/contact-hero-support.png';
 
 type IconComp = ComponentType<{ className: string }>;
 
@@ -28,7 +29,7 @@ function Icon({ name, className }: { name: PublicIconKey; className: string }) {
 
 export function ContactPage() {
   return (
-    <main className="overflow-x-clip">
+    <main className="public-site overflow-x-clip">
       <Hero />
       <HelpStrip />
       <ContactCards />
@@ -57,9 +58,13 @@ function Hero() {
     <section className="relative overflow-hidden border-b border-pub-border bg-white">
       <div
         aria-hidden="true"
-        className="absolute -top-24 right-0 h-80 w-80 rounded-full bg-pub-blue-light blur-3xl"
+        className="pointer-events-none absolute -top-24 right-0 h-80 w-80 rounded-full bg-pub-blue-light blur-3xl"
       />
-      <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-2 lg:items-center lg:py-12">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-pub-blue-light/50 blur-3xl"
+      />
+      <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-2 lg:items-center lg:py-14">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-pub-blue">{hero.eyebrow}</p>
           <h1 className="mt-3 font-heading text-3xl font-extrabold leading-tight text-pub-navy sm:text-4xl lg:text-5xl">
@@ -84,7 +89,15 @@ function Hero() {
           </ul>
         </div>
 
-        <ContactChatArt className="mx-auto hidden h-auto w-full max-w-md lg:block" />
+        <div className="relative mx-auto flex w-full max-w-sm items-center justify-center sm:max-w-md lg:max-w-lg">
+          <IllustrationGlow className="inset-x-8 inset-y-10 sm:inset-x-12 sm:inset-y-14" />
+          <img
+            src={contactHeroSupportSrc}
+            alt=""
+            aria-hidden="true"
+            className="relative h-auto max-h-[28rem] w-full object-contain"
+          />
+        </div>
       </div>
     </section>
   );
@@ -97,14 +110,14 @@ function Hero() {
 function HelpStrip() {
   const { helpStrip } = contactPage;
   return (
-    <section className="bg-pub-bg py-8 sm:py-10 lg:py-12">
+    <section className="bg-pub-bg py-8 sm:py-10 lg:py-10">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow={helpStrip.eyebrow} title={helpStrip.heading} />
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <div className="mt-8 grid items-stretch gap-4 sm:grid-cols-3">
           {helpStrip.items.map((item) => (
             <div
               key={item.title}
-              className="flex flex-col items-center rounded-xl border border-pub-border bg-white p-5 text-center shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-pub-blue/40 hover:shadow-md"
+              className="flex h-full flex-col items-center rounded-xl border border-pub-border bg-white p-5 text-center shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-pub-blue/40 hover:shadow-md"
             >
               <IllustratedBadge size="lg">
                 <Icon name={item.icon} className="size-6" />
@@ -125,8 +138,12 @@ function HelpStrip() {
 
 function ContactCards() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10 lg:py-12">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <section className="relative overflow-hidden px-4 py-8 sm:px-6 sm:py-10 lg:py-10">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-16 right-0 h-56 w-56 rounded-full bg-pub-blue-light/40 blur-3xl"
+      />
+      <div className="relative mx-auto grid max-w-6xl items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {contactPage.cards.map((card) => {
           const external = card.href.startsWith('http');
           const featured = 'featured' in card && card.featured;
@@ -136,7 +153,7 @@ function ContactCards() {
               href={card.href}
               target={external ? '_blank' : undefined}
               rel={external ? 'noopener noreferrer' : undefined}
-              className={`relative flex min-w-0 flex-col items-center gap-3 rounded-xl p-5 text-center shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg ${
+              className={`relative flex h-full min-w-0 flex-col items-center gap-3 rounded-xl p-5 text-center shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg ${
                 featured
                   ? 'border border-pub-navy bg-pub-navy text-white hover:shadow-pub-navy/30'
                   : 'border border-pub-border bg-white hover:border-pub-blue/40'
@@ -216,9 +233,9 @@ function EnquiryFormSection() {
   const busy = status === 'busy';
 
   return (
-    <section className="bg-pub-bg py-8 sm:py-10 lg:py-12">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-[1.3fr_1fr] lg:items-start">
-        <div className="rounded-2xl border border-pub-border bg-white p-6 shadow-md sm:p-8">
+    <section className="bg-pub-bg py-8 sm:py-10 lg:py-10">
+      <div className="mx-auto grid max-w-6xl items-stretch gap-8 px-4 sm:px-6 lg:grid-cols-[1.3fr_1fr]">
+        <div className="h-full rounded-2xl border border-pub-border bg-white p-6 shadow-md sm:p-8">
           <div className="flex items-center gap-3">
             <IllustratedBadge size="md">
               <Icon name="send" className="size-5" />
@@ -334,17 +351,24 @@ function EnquiryFormSection() {
           )}
         </div>
 
-        <div className="flex flex-col gap-6">
-          <ContactChatArt className="mx-auto hidden h-auto w-full max-w-xs lg:block" />
+        <div className="flex h-full flex-col gap-6">
+          <div className="relative mx-auto hidden w-full max-w-xs lg:block">
+            <IllustrationGlow className="inset-5" />
+            <DotCluster className="right-0 top-0 h-12 w-14" />
+            <ContactChatArt className="relative h-auto w-full" />
+          </div>
 
-          <div className="rounded-2xl border border-pub-border bg-white p-6 shadow-sm">
+          <div className="flex flex-1 flex-col rounded-2xl border border-pub-border bg-white p-6 shadow-sm transition-all duration-200 hover:border-pub-blue/30 hover:shadow-md">
             <h3 className="font-heading text-sm font-bold text-pub-navy">What happens next</h3>
             <ol className="mt-4 space-y-4">
               {form.steps.map((step, index) => (
-                <li key={step.title} className="flex gap-3">
+                <li key={step.title} className="relative flex gap-3">
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-pub-blue-light text-xs font-bold text-pub-blue">
                     {index + 1}
                   </span>
+                  {index < form.steps.length - 1 && (
+                    <span aria-hidden="true" className="absolute left-[13px] top-7 bottom-[-16px] w-px bg-pub-blue/25" />
+                  )}
                   <div>
                     <p className="text-sm font-semibold text-pub-navy">{step.title}</p>
                     <p className="mt-0.5 text-xs leading-relaxed text-pub-muted">{step.body}</p>
@@ -367,9 +391,10 @@ function FinalCta() {
   const { finalCta } = contactPage;
   return (
     <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
-      <div className="flex flex-col items-center gap-4 rounded-2xl bg-pub-navy p-6 text-center text-white shadow-lg sm:flex-row sm:justify-between sm:p-7 sm:text-left">
-        <h2 className="font-heading text-lg font-bold sm:text-xl">{finalCta.heading}</h2>
-        <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="relative flex flex-col items-center gap-4 overflow-hidden rounded-2xl bg-pub-navy p-6 text-center text-white shadow-lg sm:flex-row sm:justify-between sm:p-7 sm:text-left">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-pub-blue/30 blur-3xl" />
+        <h2 className="relative font-heading text-lg font-bold sm:text-xl">{finalCta.heading}</h2>
+        <div className="relative flex flex-col gap-3 sm:flex-row">
           <Link
             to={finalCta.primaryCta.to}
             className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-white px-5 text-sm font-semibold text-pub-navy hover:bg-pub-blue-light"

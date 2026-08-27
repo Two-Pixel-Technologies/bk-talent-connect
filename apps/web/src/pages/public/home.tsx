@@ -36,7 +36,7 @@ export function HomePage() {
   if (user) return <Navigate to={HOME_FOR_ROLE[user.role]} replace />;
 
   return (
-    <main className="overflow-x-clip">
+    <main className="public-site overflow-x-clip">
       <Hero />
       <Stats />
       <Audiences />
@@ -66,8 +66,9 @@ function SectionHeading({ eyebrow }: { eyebrow: string }) {
  * precisely on the outer ring instead of floating near it.
  */
 const ORBIT_ANGLES_DEG = [90, 140, 40, 165, 15];
+const ORBIT_DOT_ANGLES_DEG = [27.5, 65, 115, 152.5];
 
-const ORBIT_NODE_POSITIONS = ORBIT_ANGLES_DEG.map((deg) => {
+function orbitPosition(deg: number) {
   const rad = (deg * Math.PI) / 180;
   const { cx, cy, outerR } = HERO_ORBIT;
   // The 200×100 viewBox maps to the container at aspect-[2/1]: 200 units
@@ -77,26 +78,98 @@ const ORBIT_NODE_POSITIONS = ORBIT_ANGLES_DEG.map((deg) => {
     left: `${(cx + outerR * Math.cos(rad)) / 2}%`,
     top: `${cy - outerR * Math.sin(rad)}%`,
   };
-});
+}
+
+const ORBIT_NODE_POSITIONS = ORBIT_ANGLES_DEG.map(orbitPosition);
+const ORBIT_DOT_POSITIONS = ORBIT_DOT_ANGLES_DEG.map(orbitPosition);
+
+function HeroFeatureGlyph({ feature, className }: { feature: number; className: string }) {
+  if (feature === 2) return <Icon name="briefcase" className={className} />;
+  if (feature === 3) return <Icon name="shieldCheck" className={className} />;
+
+  if (feature === 0) {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <circle cx="12" cy="8" r="3" />
+        <path d="M6.8 18.5c.6-3 2.4-4.6 5.2-4.6s4.6 1.6 5.2 4.6" />
+        <path d="m16.8 10.8 1.4 1.4 2.7-3" />
+        <rect x="4" y="3" width="16" height="18" rx="3" />
+      </svg>
+    );
+  }
+
+  if (feature === 1) {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <circle cx="8" cy="8" r="2.4" />
+        <circle cx="16" cy="8" r="2.4" />
+        <path d="M3.8 17c.4-2.7 1.8-4.2 4.2-4.2s3.8 1.5 4.2 4.2M11.8 17c.4-2.7 1.8-4.2 4.2-4.2s3.8 1.5 4.2 4.2" />
+        <path d="m9.8 19 1.5 1.5 3.2-3.5" />
+      </svg>
+    );
+  }
+
+  if (feature === 4) {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M4 13v-2a8 8 0 0 1 16 0v2" />
+        <path d="M4 13.5a2.5 2.5 0 0 1 2.5-2.5H8v7H6.5A2.5 2.5 0 0 1 4 15.5v-2Z" />
+        <path d="M20 13.5a2.5 2.5 0 0 0-2.5-2.5H16v7h1.5a2.5 2.5 0 0 0 2.5-2.5v-2Z" />
+        <path d="M16 18c-.8 1.3-2 2-3.7 2H11" />
+        <circle cx="10" cy="20" r="1" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="m3.5 12 3.2-3.2 4.1 1.4 2.4-1.2 2.6 1.7" />
+      <path d="m20.5 12-3.2-3.2-3.5 1.8-2.1 2.1a1.8 1.8 0 0 0 2.5 2.5l1.4-1.3" />
+      <path d="m6.3 12.5 5.4 5.3a2 2 0 0 0 2.8 0l4.1-4" />
+      <path d="m8.5 15 1.4-1.4m1.1 3.2 1.4-1.4" />
+    </svg>
+  );
+}
+
+/** Home-hero exception: these five orbit nodes intentionally keep the
+ * reference's filled blue treatment. Shared public icon badges remain light. */
+function HeroNodeBadge({ feature, compact = false }: { feature: number; compact?: boolean }) {
+  return (
+    <span
+      className={`flex shrink-0 items-center justify-center rounded-full border border-white/70 text-white shadow-[0_8px_20px_rgba(23,58,112,0.2)] ${
+        compact ? 'size-12' : 'size-[60px]'
+      }`}
+      style={{ background: 'radial-gradient(circle at 32% 25%, var(--color-pub-blue), var(--color-pub-navy) 82%)' }}
+    >
+      <HeroFeatureGlyph feature={feature} className={compact ? 'size-5' : 'size-6'} />
+    </span>
+  );
+}
 
 function OrbitNode({
   icon,
   label,
   style,
+  index,
 }: {
   icon: PublicIconKey;
   label: string;
   style: { left: string; top: string };
+  index: number;
 }) {
+  void icon;
+  const labelClass =
+    index === 0
+      ? 'bottom-10 left-1/2 w-32 -translate-x-1/2 text-center'
+      : index === 1 || index === 3
+        ? 'right-10 top-1/2 w-28 -translate-y-1/2 pr-3 text-right'
+        : 'left-10 top-1/2 w-28 -translate-y-1/2 pl-3 text-left';
   return (
-    <div
-      style={style}
-      className="absolute z-10 flex w-28 -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2.5 text-center"
-    >
-      <IllustratedBadge size="lg">
-        <Icon name={icon} className="size-6" />
-      </IllustratedBadge>
-      <span className="text-[11px] font-semibold leading-tight text-pub-navy">{label}</span>
+    <div style={style} className="absolute z-10 size-0">
+      <span className="absolute left-0 top-0 -translate-x-1/2 -translate-y-1/2">
+        <HeroNodeBadge feature={index} />
+      </span>
+      <span className={`absolute text-[11px] font-semibold leading-tight text-pub-navy ${labelClass}`}>{label}</span>
     </div>
   );
 }
@@ -104,6 +177,12 @@ function OrbitNode({
 function Hero() {
   return (
     <section className="relative overflow-hidden border-b border-pub-border bg-white">
+      {/* Soft depth behind the copy/chips on mobile and tablet, where the desktop-only
+          orbit glow (HeroOrbitBackdrop) isn't rendered. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-24 left-1/2 h-72 w-[36rem] -translate-x-1/2 rounded-full bg-pub-blue-light/50 blur-3xl lg:hidden"
+      />
       <div className="relative mx-auto max-w-6xl px-4 pb-10 pt-4 sm:px-6 sm:pt-6">
         {/* Desktop: full illustrated orbit. Smaller screens fall back to a plain chip grid below.
             aspect-[2.4/1] renders HeroOrbitBackdrop's 200×100 viewBox stretched flatter/wider —
@@ -112,23 +191,31 @@ function Hero() {
             ellipse rather than a true circle. */}
         <div className="relative mx-auto hidden aspect-[2.4/1] w-full max-w-6xl lg:block">
           <HeroOrbitBackdrop />
+          {ORBIT_DOT_POSITIONS.map((style, index) => (
+            <span
+              key={ORBIT_DOT_ANGLES_DEG[index]}
+              aria-hidden="true"
+              style={style}
+              className="absolute z-[5] size-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-pub-blue/55 shadow-[0_0_0_3px_rgba(236,243,255,0.8)]"
+            />
+          ))}
           {home.hero.chips.map((chip, index) => (
-            <OrbitNode key={chip.label} icon={chip.icon} label={chip.label} style={ORBIT_NODE_POSITIONS[index]!} />
+            <OrbitNode key={chip.label} icon={chip.icon} label={chip.label} style={ORBIT_NODE_POSITIONS[index]!} index={index} />
           ))}
         </div>
 
-        <div className="relative z-10 mx-auto max-w-2xl text-center lg:-mt-44">
+        <div className="relative z-10 mx-auto max-w-2xl text-center lg:-mt-56">
           <p className="text-xs font-semibold uppercase tracking-widest text-pub-blue">{home.hero.eyebrow}</p>
-          <h1 className="mt-5 font-heading text-3xl font-extrabold leading-tight text-pub-navy sm:text-4xl lg:text-5xl">
+          <h1 className="mt-4 font-heading text-3xl font-extrabold leading-tight text-pub-navy sm:text-4xl lg:text-5xl">
             {home.hero.heading.map((part) => (
               <span key={part.text} className={part.accent ? 'text-pub-blue' : undefined}>
                 {part.text}{' '}
               </span>
             ))}
           </h1>
-          <p className="mx-auto mt-6 max-w-md text-base text-pub-muted sm:text-lg">{home.hero.body}</p>
+          <p className="mx-auto mt-4 max-w-md text-base text-pub-muted sm:text-lg lg:max-w-[38rem]">{home.hero.body}</p>
 
-          <div className="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
+          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Link
               to={home.hero.primaryCta.to}
               className="flex min-h-12 items-center justify-center rounded-lg bg-pub-blue px-6 text-sm font-semibold text-white shadow-sm shadow-pub-blue/30 hover:bg-pub-navy sm:text-base"
@@ -153,14 +240,7 @@ function Hero() {
                 index === 4 ? 'col-span-2 mx-auto w-1/2 min-w-[9rem] sm:col-span-1 sm:mx-0 sm:w-auto sm:min-w-0' : ''
               }`}
             >
-              {/* Mobile only: plain blue outline icon, no circular backing.
-                  Tablet/desktop keep the existing filled IllustratedBadge untouched. */}
-              <Icon name={chip.icon} className="size-7 text-pub-blue sm:hidden" />
-              <span className="hidden sm:flex">
-                <IllustratedBadge size="md">
-                  <Icon name={chip.icon} className="size-4" />
-                </IllustratedBadge>
-              </span>
+              <HeroNodeBadge feature={index} compact />
               <span className="text-xs font-medium text-pub-navy">{chip.label}</span>
             </div>
           ))}
@@ -205,9 +285,14 @@ function Stats() {
 
 function Audiences() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-12 sm:px-6">
-      <SectionHeading eyebrow="Who We Serve" />
-      <div className="mt-6 grid gap-6 md:grid-cols-2">
+    <section className="relative overflow-hidden bg-white py-8 sm:py-10 lg:py-10">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-16 right-0 h-64 w-64 rounded-full bg-pub-blue-light/40 blur-3xl"
+      />
+      <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+        <SectionHeading eyebrow="Who We Serve" />
+        <div className="mt-6 grid gap-6 md:grid-cols-2">
         {home.audiences.map((audience, index) => (
           <div
             key={audience.title}
@@ -258,6 +343,7 @@ function Audiences() {
             </div>
           </div>
         ))}
+        </div>
       </div>
     </section>
   );
@@ -279,7 +365,7 @@ function StepRow({
   steps: readonly { title: string; body: string; icon: PublicIconKey }[];
 }) {
   return (
-    <div className="grid gap-6 rounded-2xl border border-pub-border bg-white p-6 sm:p-7 md:grid-cols-[248px_1fr] md:items-center">
+    <div className="grid gap-6 rounded-2xl border border-pub-border bg-gradient-to-br from-white to-pub-blue-light/20 p-6 shadow-sm transition-all duration-200 hover:border-pub-blue/30 hover:shadow-md sm:p-7 md:grid-cols-[248px_1fr] md:items-center">
       <div className="flex items-center gap-4 rounded-xl bg-pub-navy p-5 text-white">
         <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-white/15">
           <Icon name={icon} className="size-7" />
@@ -290,10 +376,11 @@ function StepRow({
         </div>
       </div>
 
-      <div className="relative grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-4">
+      <div className="process-flow relative grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-4">
         <div
           aria-hidden="true"
-          className="absolute inset-x-8 top-7 hidden border-t-2 border-dashed border-pub-blue/30 sm:block"
+          className="absolute top-7 hidden border-t border-pub-blue/35 sm:block"
+          style={{ left: 'calc((100% - 3rem) / 8)', right: 'calc((100% - 3rem) / 8)' }}
         />
         {[25, 50, 75].map((left) => (
           <span
@@ -308,7 +395,7 @@ function StepRow({
           </span>
         ))}
         {steps.map((step, index) => (
-          <div key={step.title} className="relative z-10 flex flex-col items-center text-center sm:items-start sm:text-left">
+          <div key={step.title} className="process-step relative z-10 flex flex-col items-center text-center">
             <IllustratedBadge size="lg" tone="outline">
               <Icon name={step.icon} className="size-5" />
             </IllustratedBadge>
@@ -326,8 +413,12 @@ function StepRow({
 
 function HowItWorks() {
   return (
-    <section id="how-it-works" className="scroll-mt-20 bg-pub-bg py-8 sm:py-10 lg:py-12">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+    <section id="how-it-works" className="scroll-mt-20 relative overflow-hidden bg-pub-bg py-8 sm:py-10 lg:py-10">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-24 top-0 h-64 w-64 rounded-full bg-pub-blue-light/50 blur-3xl"
+      />
+      <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow="How It Works" />
         <div className="mt-6 space-y-4">
           <StepRow
@@ -354,18 +445,24 @@ function HowItWorks() {
 
 function WhyUs() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-12 sm:px-6">
-      <SectionHeading eyebrow="Why BK Talent Connect" />
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {home.whyUs.map((item) => (
-          <div key={item.title} className="rounded-xl border border-pub-border bg-white p-5 text-center transition-all duration-200 hover:-translate-y-1 hover:border-pub-blue/40 hover:shadow-md">
-            <IllustratedBadge size="lg" tone="outline" className="mx-auto">
-              <Icon name={item.icon} className="size-6" />
-            </IllustratedBadge>
-            <h3 className="mt-3 font-heading text-sm font-bold text-pub-navy">{item.title}</h3>
-            <p className="mt-1.5 text-xs leading-relaxed text-pub-muted">{item.body}</p>
-          </div>
-        ))}
+    <section className="relative overflow-hidden bg-white py-8 sm:py-10 lg:py-10">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-16 left-1/2 h-64 w-[32rem] -translate-x-1/2 rounded-full bg-pub-blue-light/40 blur-3xl"
+      />
+      <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+        <SectionHeading eyebrow="Why BK Talent Connect" />
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {home.whyUs.map((item) => (
+            <div key={item.title} className="rounded-xl border border-pub-border bg-white p-5 text-center shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-pub-blue/40 hover:shadow-md">
+              <IllustratedBadge size="lg" tone="outline" className="mx-auto">
+                <Icon name={item.icon} className="size-6" />
+              </IllustratedBadge>
+              <h3 className="mt-3 font-heading text-sm font-bold text-pub-navy">{item.title}</h3>
+              <p className="mt-1.5 text-xs leading-relaxed text-pub-muted">{item.body}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -377,10 +474,10 @@ function WhyUs() {
 
 function Industries() {
   return (
-    <section id="industries" className="scroll-mt-20 bg-white py-8 sm:py-10 lg:py-12">
+    <section id="industries" className="scroll-mt-20 bg-pub-bg py-8 sm:py-10 lg:py-10">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionHeading eyebrow="Industries We Serve" />
-        <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-6 rounded-2xl border border-pub-border bg-white p-6 sm:grid-cols-3 sm:p-8 lg:grid-cols-6 lg:gap-y-0 lg:divide-x lg:divide-pub-border">
+        <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-6 rounded-2xl border border-pub-border bg-white p-6 shadow-sm sm:grid-cols-3 sm:p-8 lg:grid-cols-6 lg:gap-y-0 lg:divide-x lg:divide-pub-border">
           {home.industries.map((industry) => (
             <div key={industry.name} className="flex flex-col items-center gap-2.5 text-center lg:px-2">
               <Icon name={industry.icon} className="size-7 text-pub-blue" />
@@ -399,7 +496,7 @@ function Industries() {
 
 function Approach() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-12 sm:px-6">
+    <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-10 sm:px-6">
       <div className="grid gap-8 rounded-2xl bg-pub-blue-light p-6 sm:p-8 lg:grid-cols-2 lg:items-center">
         <div>
           <h2 className="font-heading text-2xl font-bold leading-tight text-pub-navy sm:text-3xl">
@@ -433,11 +530,12 @@ function Approach() {
 function ContactBand() {
   const { contact } = home;
   return (
-    <section id="contact" className="scroll-mt-20 bg-white py-8 sm:py-10 lg:py-12">
+    <section id="contact" className="scroll-mt-20 bg-white py-8 sm:py-10 lg:py-10">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="grid gap-8 rounded-2xl bg-pub-navy p-6 text-white sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center">
-          <h2 className="font-heading text-xl font-bold sm:text-2xl">{contact.heading}</h2>
-          <div className="grid gap-3 sm:grid-cols-3 lg:w-[46rem]">
+        <div className="relative grid gap-8 overflow-hidden rounded-2xl bg-pub-navy p-6 text-white sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-pub-blue/30 blur-3xl" />
+          <h2 className="relative font-heading text-xl font-bold sm:text-2xl">{contact.heading}</h2>
+          <div className="relative grid gap-3 sm:grid-cols-3 lg:w-[46rem]">
             <ContactTile {...contact.whatsapp} />
             <ContactTile {...contact.email} />
             <ContactTile {...contact.phone} />

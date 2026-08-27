@@ -85,18 +85,58 @@ export function IllustratedBadge({
   tone?: 'filled' | 'outline';
   className?: string;
 }) {
-  const filled = tone === 'filled';
   return (
     <span
-      className={`flex ${BADGE_SIZE[size]} shrink-0 items-center justify-center rounded-full ${
-        filled
-          ? 'text-white shadow-lg shadow-pub-navy/25 ring-4 ring-white'
-          : 'border-2 border-pub-blue-light bg-white text-pub-blue'
+      className={`public-icon-circle flex ${BADGE_SIZE[size]} shrink-0 items-center justify-center rounded-full border bg-white text-pub-blue ${
+        tone === 'filled' ? 'border-pub-blue/30' : 'border-pub-blue/25'
       } ${className}`}
-      style={filled ? { background: 'radial-gradient(circle at 30% 25%, var(--color-pub-blue), var(--color-pub-navy) 78%)' } : undefined}
     >
       {children}
     </span>
+  );
+}
+
+/* ---------------------------------------------------------------------- */
+/* Shared decorative accents — an organic glow for illustrations, a sparse  */
+/* dot cluster, and a thin arc — reused across public pages instead of      */
+/* each page hand-rolling its own background decoration.                   */
+/* ---------------------------------------------------------------------- */
+
+/**
+ * A soft, blurred, organic blob placed behind an illustration — never a
+ * hard-edged rectangle — so artwork reads as integrated into the section
+ * rather than floating on plain white. Caller sizes/positions it with
+ * `className` (typically `inset-*` on a `relative` wrapper around the art).
+ */
+export function IllustrationGlow({ className = '' }: { className?: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={`pointer-events-none absolute rounded-full bg-gradient-to-br from-pub-blue-light to-pub-blue-light/25 blur-2xl ${className}`}
+    />
+  );
+}
+
+/** A sparse handful of small round dots (not a dashed stroke) for a light
+ * decorative accent near an illustration or section corner. */
+export function DotCluster({ className = '' }: { className?: string }) {
+  const dots = [
+    { cx: 6, cy: 10, r: 2.2 },
+    { cx: 22, cy: 4, r: 1.6 },
+    { cx: 36, cy: 16, r: 2.6 },
+    { cx: 14, cy: 26, r: 1.6 },
+    { cx: 44, cy: 30, r: 2 },
+  ];
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 50 36"
+      className={`pointer-events-none absolute ${className}`}
+    >
+      {dots.map((d, i) => (
+        <circle key={i} cx={d.cx} cy={d.cy} r={d.r} fill="var(--color-pub-blue)" fillOpacity="0.3" />
+      ))}
+    </svg>
   );
 }
 
@@ -124,10 +164,6 @@ export const HERO_ORBIT = { cx: 100, cy: 100, outerR: 82 } as const;
  * nothing extending past either node. */
 const ORBIT_ARC_START_DEG = 165;
 const ORBIT_ARC_END_DEG = 15;
-
-/** Angles (degrees) of the small dots marking the midpoint between each
- * pair of adjacent icon nodes — the four gaps between the five nodes above. */
-const ORBIT_DOT_ANGLES_DEG = [27.5, 65, 115, 152.5];
 
 function pointOnOrbit(deg: number) {
   const { cx, cy, outerR } = HERO_ORBIT;
@@ -167,11 +203,6 @@ export function HeroOrbitBackdrop({ className = '' }: { className?: string }) {
         strokeWidth="0.45"
       />
 
-      {/* Small dots marking the arc between nodes. */}
-      {ORBIT_DOT_ANGLES_DEG.map((deg) => {
-        const p = pointOnOrbit(deg);
-        return <circle key={deg} cx={p.x} cy={p.y} r="1.4" fill="var(--color-pub-blue)" fillOpacity="0.55" />;
-      })}
     </svg>
   );
 }
@@ -540,35 +571,47 @@ export function TargetAvatarsArt({ className = '' }: { className?: string }) {
 }
 
 /* ---------------------------------------------------------------------- */
-/* Contact — a chat bubble with a message line and a "sent" check badge,   */
-/* the Contact page's companion to VerifiedTalentArt's card-plus-badge     */
-/* composition.                                                            */
+/* Contact — recruiter/support specialist with headset, conversation card, */
+/* and enquiry confirmation.                                               */
 /* ---------------------------------------------------------------------- */
 
 export function ContactChatArt({ className = '' }: { className?: string }) {
   return (
-    <svg viewBox="0 0 320 260" className={className} role="img" aria-label="A message bubble being sent, with a confirmation check">
-      <circle cx="252" cy="46" r="34" fill="var(--color-pub-blue-light)" opacity="0.7" />
-      <circle cx="34" cy="214" r="26" fill="var(--color-pub-blue-light)" opacity="0.7" />
+    <svg viewBox="0 0 360 300" className={className} role="img" aria-label="A recruitment support specialist responding to an enquiry">
+      <ellipse cx="180" cy="270" rx="132" ry="14" fill="var(--color-pub-blue)" opacity="0.08" />
+      <circle cx="278" cy="74" r="54" fill="var(--color-pub-blue-light)" opacity="0.8" />
+      <circle cx="76" cy="224" r="42" fill="var(--color-pub-blue-light)" opacity="0.65" />
 
-      <rect x="40" y="30" width="220" height="150" rx="20" fill="white" stroke="var(--color-pub-border)" />
-      <g transform="translate(70 60)">
-        <circle r="16" fill="var(--color-pub-blue-light)" />
-        <AvatarGlyph cx={0} cy={0} r={10} />
+      {/* support specialist */}
+      <path d="M88 244c5-49 30-76 72-76s67 27 72 76" fill="var(--color-pub-navy)" />
+      <path d="M128 176c8 13 18 20 32 20s24-7 32-20l10 68h-84Z" fill="var(--color-pub-blue)" />
+      <circle cx="160" cy="120" r="48" fill="#F2B58E" />
+      <path d="M116 120c0-43 19-65 48-65 34 0 49 25 44 65-10-5-19-15-23-31-15 16-34 24-69 25Z" fill="var(--color-pub-navy)" />
+      <path d="M122 116v20a38 38 0 0 0 76 0v-20" fill="#F2B58E" />
+      <circle cx="145" cy="128" r="2.5" fill="var(--color-pub-navy)" />
+      <circle cx="178" cy="128" r="2.5" fill="var(--color-pub-navy)" />
+      <path d="M151 148c7 6 14 6 21 0" fill="none" stroke="#A85F48" strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M117 128a45 45 0 0 1 90 0" fill="none" stroke="var(--color-pub-blue)" strokeWidth="6" strokeLinecap="round" />
+      <rect x="109" y="124" width="12" height="28" rx="6" fill="var(--color-pub-blue)" />
+      <rect x="203" y="124" width="12" height="28" rx="6" fill="var(--color-pub-blue)" />
+      <path d="M210 150c0 15-11 22-27 22" fill="none" stroke="var(--color-pub-blue)" strokeWidth="3" strokeLinecap="round" />
+      <circle cx="181" cy="172" r="4" fill="var(--color-pub-blue)" />
+
+      {/* enquiry conversation card */}
+      <g transform="translate(218 58)">
+        <rect width="126" height="132" rx="18" fill="white" stroke="var(--color-pub-border)" strokeWidth="1.5" />
+        <circle cx="25" cy="28" r="12" fill="var(--color-pub-blue-light)" />
+        <AvatarGlyph cx={25} cy={28} r={8} />
+        <rect x="45" y="20" width="56" height="7" rx="3.5" fill="var(--color-pub-navy)" opacity="0.78" />
+        <rect x="45" y="33" width="38" height="6" rx="3" fill="var(--color-pub-blue-light)" />
+        <rect x="17" y="57" width="91" height="9" rx="4.5" fill="var(--color-pub-border)" />
+        <rect x="17" y="73" width="76" height="9" rx="4.5" fill="var(--color-pub-border)" />
+        <rect x="17" y="94" width="70" height="22" rx="11" fill="var(--color-pub-blue)" opacity="0.12" />
+        <path d="m96 102 5 5 9-11" fill="none" stroke="var(--color-pub-blue)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
       </g>
-      <rect x="100" y="52" width="120" height="8" rx="4" fill="var(--color-pub-navy)" opacity="0.7" />
-      <rect x="100" y="68" width="80" height="8" rx="4" fill="var(--color-pub-blue-light)" />
 
-      <rect x="70" y="98" width="160" height="10" rx="5" fill="var(--color-pub-border)" />
-      <rect x="70" y="116" width="140" height="10" rx="5" fill="var(--color-pub-border)" />
-      <rect x="70" y="134" width="100" height="10" rx="5" fill="var(--color-pub-blue-light)" />
-
-      {/* bubble tail */}
-      <path d="M78 180 L78 202 L104 180 Z" fill="white" stroke="var(--color-pub-border)" strokeLinejoin="round" />
-
-      <g transform="translate(246 168)">
-        <circle r="28" fill="var(--color-pub-blue)" stroke="white" strokeWidth="5" />
-        <path d="m-11 1 7 7 15 -16" stroke="white" strokeWidth="4.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <g fill="var(--color-pub-blue)" opacity="0.34">
+        <circle cx="60" cy="70" r="3" /><circle cx="78" cy="56" r="2" /><circle cx="90" cy="78" r="2.5" />
       </g>
     </svg>
   );
