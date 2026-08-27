@@ -34,8 +34,11 @@ function PublicNavLink({
   return (
     <NavLink
       to={href}
+      end={href === '/'}
       onClick={onClick}
-      className={({ isActive }) => `${className} ${isActive ? 'text-pub-blue' : ''}`}
+      className={({ isActive }) =>
+        `${className} ${isActive ? 'text-pub-blue shadow-[inset_0_-2px_0_var(--color-pub-blue)]' : ''}`
+      }
     >
       {children}
     </NavLink>

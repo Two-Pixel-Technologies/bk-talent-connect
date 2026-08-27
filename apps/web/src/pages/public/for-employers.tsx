@@ -38,7 +38,7 @@ const ART: Record<'verifiedTalent' | 'screening' | 'growth', ComponentType<{ cla
 
 export function ForEmployersPage() {
   return (
-    <main className="public-site employers-public overflow-x-clip">
+    <main className="public-site employers-public mobile-refine-scope overflow-x-clip">
       <Hero />
       <Stats />
       <WhyChoose />
@@ -74,17 +74,19 @@ function OrbitNode({
   icon,
   label,
   className,
+  labelClassName,
   center = false,
 }: {
   icon: PublicIconKey;
   label: string;
   className: string;
+  labelClassName: string;
   center?: boolean;
 }) {
   return (
-    <div className={`absolute flex w-20 flex-col items-center gap-1.5 text-center sm:w-28 sm:gap-2 ${className}`}>
+    <div className={`absolute z-10 size-0 ${className}`}>
       <span
-        className={`flex items-center justify-center rounded-full shadow-md ring-1 ring-black/5 ${
+        className={`absolute left-0 top-0 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full shadow-md ring-1 ring-black/5 ${
           center ? 'size-14 text-white shadow-lg sm:size-20' : 'size-11 bg-white text-[#2563EB] sm:size-14'
         }`}
         style={center ? { background: HERO_BLUE } : undefined}
@@ -92,7 +94,7 @@ function OrbitNode({
         <Icon name={icon} className={center ? 'size-6 sm:size-9' : 'size-5 sm:size-6'} />
       </span>
       <span
-        className={`text-[10px] font-semibold leading-tight sm:text-xs ${center ? 'text-[#0A2E73]' : 'text-pub-navy'}`}
+        className={`absolute z-20 rounded bg-white/95 px-1 text-[10px] font-semibold leading-tight sm:text-xs ${center ? 'text-[#0A2E73]' : 'text-pub-navy'} ${labelClassName}`}
       >
         {label}
       </span>
@@ -103,20 +105,68 @@ function OrbitNode({
 function HeroOrbit() {
   const { orbit } = forEmployers.hero;
   return (
-    <div className="relative mx-auto h-72 w-72 max-w-full sm:h-80 sm:w-80 lg:h-80 lg:w-80 xl:h-96 xl:w-96">
+    <div className="relative mx-auto hidden h-72 w-72 max-w-full sm:block sm:h-[21rem] sm:w-[21rem] lg:h-[21rem] lg:w-[21rem] xl:h-[27rem] xl:w-[27rem]">
       <svg viewBox="0 0 340 340" aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full">
-        <circle cx="170" cy="170" r="120" fill="none" stroke="#2563EB" strokeOpacity="0.34" strokeWidth="1.5" strokeDasharray="1 8" />
+        <circle cx="170" cy="170" r="104" fill="none" stroke="#2563EB" strokeOpacity="0.34" strokeWidth="1.5" strokeDasharray="1 8" />
         <line x1="170" y1="170" x2="170" y2="40" stroke="#2563EB" strokeOpacity="0.34" strokeWidth="1.5" />
         <line x1="170" y1="170" x2="300" y2="170" stroke="#2563EB" strokeOpacity="0.34" strokeWidth="1.5" />
         <line x1="170" y1="170" x2="170" y2="300" stroke="#2563EB" strokeOpacity="0.34" strokeWidth="1.5" />
         <line x1="170" y1="170" x2="40" y2="170" stroke="#2563EB" strokeOpacity="0.34" strokeWidth="1.5" />
       </svg>
 
-      <OrbitNode icon="building" label="Your Business" className="left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" center />
-      <OrbitNode icon={orbit[0]!.icon} label={orbit[0]!.label} className="left-1/2 top-0 -translate-x-1/2" />
-      <OrbitNode icon={orbit[1]!.icon} label={orbit[1]!.label} className="left-0 top-1/2 -translate-y-1/2" />
-      <OrbitNode icon={orbit[2]!.icon} label={orbit[2]!.label} className="right-0 top-1/2 -translate-y-1/2" />
-      <OrbitNode icon={orbit[3]!.icon} label={orbit[3]!.label} className="bottom-0 left-1/2 -translate-x-1/2" />
+      <OrbitNode icon="building" label="Your Business" className="left-1/2 top-1/2" labelClassName="left-1/2 top-12 w-28 -translate-x-1/2 text-center" center />
+      <OrbitNode icon={orbit[0]!.icon} label={orbit[0]!.label} className="left-1/2 top-[12%]" labelClassName="bottom-11 left-1/2 w-32 -translate-x-1/2 text-center" />
+      <OrbitNode icon={orbit[1]!.icon} label={orbit[1]!.label} className="left-[12%] top-1/2" labelClassName="right-11 top-1/2 w-28 -translate-y-1/2 text-right lg:w-16" />
+      <OrbitNode icon={orbit[2]!.icon} label={orbit[2]!.label} className="right-[12%] top-1/2" labelClassName="left-11 top-1/2 w-28 -translate-y-1/2 text-left" />
+      <OrbitNode icon={orbit[3]!.icon} label={orbit[3]!.label} className="bottom-[12%] left-1/2" labelClassName="left-1/2 top-11 w-32 -translate-x-1/2 text-center" />
+    </div>
+  );
+}
+
+function EmployerMobileWidget() {
+  const { orbit } = forEmployers.hero;
+  const positions = [
+    'left-1/2 top-7 -translate-x-1/2',
+    'left-4 top-1/2 -translate-y-1/2',
+    'right-4 top-1/2 -translate-y-1/2',
+    'bottom-7 left-1/2 -translate-x-1/2',
+  ] as const;
+  const labelPositions = [
+    'bottom-[3.25rem] left-1/2 -translate-x-1/2',
+    'left-1/2 top-12 -translate-x-1/2',
+    'left-1/2 top-12 -translate-x-1/2',
+    'left-1/2 top-[3.25rem] -translate-x-1/2',
+  ] as const;
+  return (
+    <div className="relative mx-auto h-[19rem] w-full max-w-[19rem] sm:hidden">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-10 rounded-full bg-pub-blue-light/45 blur-2xl" />
+      <svg viewBox="0 0 304 304" aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 size-full">
+        <circle cx="152" cy="152" r="105" fill="none" stroke={HERO_BLUE} strokeOpacity="0.3" strokeWidth="1.5" strokeDasharray="1 7" />
+        <line x1="152" y1="76" x2="152" y2="120" stroke={HERO_BLUE} strokeOpacity="0.28" strokeWidth="1.5" />
+        <line x1="64" y1="152" x2="120" y2="152" stroke={HERO_BLUE} strokeOpacity="0.28" strokeWidth="1.5" />
+        <line x1="184" y1="152" x2="240" y2="152" stroke={HERO_BLUE} strokeOpacity="0.28" strokeWidth="1.5" />
+        <line x1="152" y1="184" x2="152" y2="228" stroke={HERO_BLUE} strokeOpacity="0.28" strokeWidth="1.5" />
+      </svg>
+
+      <div className="absolute left-1/2 top-1/2 z-20 size-16 -translate-x-1/2 -translate-y-1/2">
+        <span className="flex size-16 items-center justify-center rounded-full bg-pub-blue text-white shadow-lg ring-4 ring-white">
+          <Icon name="building" className="size-7" />
+        </span>
+        <span className="absolute left-1/2 top-[4.5rem] w-24 -translate-x-1/2 rounded bg-white/90 px-1 text-center text-[11px] font-bold leading-tight text-pub-navy">
+          Your Business
+        </span>
+      </div>
+
+      {orbit.map((item, index) => (
+          <div key={item.label} className={`absolute z-10 size-12 ${positions[index]}`}>
+            <span className="flex size-12 items-center justify-center rounded-full border border-pub-blue/20 bg-white text-pub-blue shadow-md ring-2 ring-pub-blue-light/70">
+              <Icon name={item.icon} className="size-5" />
+            </span>
+            <span className={`absolute z-20 w-20 rounded bg-white/90 px-1 text-center text-[10px] font-semibold leading-tight text-pub-navy min-[360px]:w-24 min-[360px]:text-[11px] ${labelPositions[index]}`}>
+              {item.label}
+            </span>
+          </div>
+      ))}
     </div>
   );
 }
@@ -185,6 +235,7 @@ function Hero() {
         </div>
 
         <div className="flex items-center justify-center">
+          <EmployerMobileWidget />
           <HeroOrbit />
         </div>
       </div>

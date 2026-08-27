@@ -25,7 +25,7 @@ function Icon({ name, className }: { name: PublicIconKey; className: string }) {
 
 export function ForCandidatesPage() {
   return (
-    <main className="public-site overflow-x-clip">
+    <main className="public-site mobile-refine-scope overflow-x-clip">
       <Hero />
       <Stats />
       <WhyChoose />
@@ -243,11 +243,11 @@ function Benefits() {
           </div>
           <div className="grid gap-6 sm:grid-cols-2">
             {forCandidates.benefits.map((item) => (
-              <div key={item.title} className="flex items-start gap-3">
+              <div key={item.title} className="flex !items-start !justify-start gap-3 !text-left">
                 <IllustratedBadge size="md" tone="outline">
                   <Icon name={item.icon} className="size-5" />
                 </IllustratedBadge>
-                <div>
+                <div className="!text-left">
                   <h3 className="font-heading text-sm font-bold text-pub-navy">{item.title}</h3>
                   <p className="mt-1 text-xs leading-relaxed text-pub-muted">{item.body}</p>
                 </div>
@@ -307,7 +307,7 @@ function FinalCta() {
 function FaqAccordion() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
   return (
-    <div className="divide-y divide-pub-border rounded-2xl border border-pub-border bg-white">
+    <div className="divide-y divide-pub-border rounded-2xl border border-pub-border bg-white !text-left">
       {forCandidates.faq.map((item, index) => {
         const open = openIndex === index;
         return (
@@ -323,7 +323,7 @@ function FaqAccordion() {
                 +
               </span>
             </button>
-            {open && <p className="px-5 pb-4 text-sm leading-relaxed text-pub-muted">{item.answer}</p>}
+            {open && <p className="px-5 pb-4 !text-left text-sm leading-relaxed text-pub-muted">{item.answer}</p>}
           </div>
         );
       })}
@@ -336,7 +336,7 @@ function FaqAndHelp() {
   return (
     <section className="bg-pub-bg py-8 sm:py-10 lg:py-10">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 sm:px-6 lg:grid-cols-[1.4fr_1fr]">
-        <div>
+        <div className="!text-left">
           <h2 className="font-heading text-2xl font-bold text-pub-navy sm:text-3xl">Frequently Asked Questions</h2>
           <div className="mt-6">
             <FaqAccordion />

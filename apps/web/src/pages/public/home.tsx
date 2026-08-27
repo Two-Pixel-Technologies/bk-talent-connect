@@ -36,7 +36,7 @@ export function HomePage() {
   if (user) return <Navigate to={HOME_FOR_ROLE[user.role]} replace />;
 
   return (
-    <main className="public-site overflow-x-clip">
+    <main className="public-site mobile-refine-scope overflow-x-clip">
       <Hero />
       <Stats />
       <Audiences />
@@ -82,6 +82,51 @@ function orbitPosition(deg: number) {
 
 const ORBIT_NODE_POSITIONS = ORBIT_ANGLES_DEG.map(orbitPosition);
 const ORBIT_DOT_POSITIONS = ORBIT_DOT_ANGLES_DEG.map(orbitPosition);
+
+/**
+ * Mobile hero widget: a true regular pentagon (72° apart, starting at the top)
+ * on a perfectly square container, so every icon sits at the exact same
+ * radius from center and left/right pairs mirror each other exactly. Order
+ * matches home.hero.chips: Verified Professionals (top), Dedicated
+ * Recruiters (upper-left), Quality Placements (upper-right), Managed
+ * Process (lower-left), End-to-End Support (lower-right).
+ */
+const MOBILE_ORBIT_ANGLES_DEG = [90, 162, 18, 234, 306];
+const MOBILE_ORBIT_DOT_ANGLES_DEG = [126, 198, 270, 342, 54];
+const MOBILE_ORBIT_RADIUS_PCT = 32;
+
+function mobileOrbitPosition(deg: number) {
+  const rad = (deg * Math.PI) / 180;
+  return {
+    left: `${50 + MOBILE_ORBIT_RADIUS_PCT * Math.cos(rad)}%`,
+    top: `${50 - MOBILE_ORBIT_RADIUS_PCT * Math.sin(rad)}%`,
+  };
+}
+
+const MOBILE_ORBIT_NODE_POSITIONS = MOBILE_ORBIT_ANGLES_DEG.map(mobileOrbitPosition);
+const MOBILE_ORBIT_DOT_POSITIONS = MOBILE_ORBIT_DOT_ANGLES_DEG.map(mobileOrbitPosition);
+
+function MobileOrbitNode({
+  feature,
+  label,
+  style,
+}: {
+  feature: number;
+  label: string;
+  style: { left: string; top: string };
+}) {
+  const labelPosition = feature <= 2 ? 'bottom-7' : 'top-7';
+  return (
+    <div style={style} className="absolute z-10 size-0">
+      <span className="absolute left-0 top-0 flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-pub-blue/30 bg-white text-pub-blue shadow-md ring-2 ring-pub-blue-light/80">
+        <HeroFeatureGlyph feature={feature} className="size-5" />
+      </span>
+      <span className={`absolute left-1/2 z-20 w-20 -translate-x-1/2 rounded bg-white px-1 text-center text-[9px] font-semibold leading-[1.15] text-pub-navy min-[360px]:w-24 min-[360px]:text-[10px] ${labelPosition}`}>
+        {label}
+      </span>
+    </div>
+  );
+}
 
 function HeroFeatureGlyph({ feature, className }: { feature: number; className: string }) {
   if (feature === 2) return <Icon name="briefcase" className={className} />;
@@ -231,13 +276,41 @@ function Hero() {
           </div>
         </div>
 
-        {/* Mobile / tablet fallback for the orbit nodes. */}
-        <div className="mx-auto mt-10 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-3 lg:hidden">
+        {/* Mobile: a dedicated five-node radial widget — a true regular pentagon
+            (see MOBILE_ORBIT_ANGLES_DEG) on a perfectly square container, so
+            every icon sits at the same distance from center and left/right
+            pairs mirror exactly, instead of the previous ad-hoc corner offsets. */}
+        <div className="relative mx-auto mt-8 aspect-square w-full max-w-[19rem] sm:hidden">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-8 rounded-full bg-gradient-to-br from-pub-blue-light/90 via-white to-pub-blue-light/35 blur-xl" />
+          <svg viewBox="0 0 100 100" aria-hidden="true" className="pointer-events-none absolute inset-0 size-full">
+            <circle cx="50" cy="50" r={MOBILE_ORBIT_RADIUS_PCT} fill="none" stroke="var(--color-pub-blue)" strokeOpacity="0.25" strokeWidth="0.45" />
+            {MOBILE_ORBIT_DOT_POSITIONS.map((pos, i) => (
+              <circle
+                key={MOBILE_ORBIT_DOT_ANGLES_DEG[i]}
+                cx={pos.left}
+                cy={pos.top}
+                r="0.6"
+                fill="var(--color-pub-blue)"
+                fillOpacity="0.4"
+              />
+            ))}
+          </svg>
+          <div className="absolute left-1/2 top-1/2 z-20 flex size-20 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full bg-gradient-to-br from-pub-blue to-pub-navy text-white shadow-xl ring-4 ring-white">
+            <Icon name="building" className="size-7" />
+            <span className="mt-1 text-[10px] font-bold">BK Talent</span>
+          </div>
+          {home.hero.chips.map((chip, index) => (
+            <MobileOrbitNode key={chip.label} feature={index} label={chip.label} style={MOBILE_ORBIT_NODE_POSITIONS[index]!} />
+          ))}
+        </div>
+
+        {/* Tablet fallback for the orbit nodes. */}
+        <div className="mx-auto mt-10 hidden max-w-2xl grid-cols-3 gap-3 sm:grid lg:hidden">
           {home.hero.chips.map((chip, index) => (
             <div
               key={chip.label}
               className={`flex flex-col items-center gap-2 rounded-xl border border-pub-border bg-pub-bg px-3 py-4 text-center ${
-                index === 4 ? 'col-span-2 mx-auto w-1/2 min-w-[9rem] sm:col-span-1 sm:mx-0 sm:w-auto sm:min-w-0' : ''
+                index === 4 ? 'col-span-1 mx-0 w-auto min-w-0' : ''
               }`}
             >
               <HeroNodeBadge feature={index} compact />
@@ -304,17 +377,17 @@ function Audiences() {
                 : { background: 'linear-gradient(160deg, #FBEEE1 0%, var(--color-pub-blue-light) 100%)' }
             }
           >
-            <div className="flex flex-col justify-center p-6 sm:p-7">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col justify-center p-6 !text-left sm:p-7">
+              <div className="flex !items-center !justify-start gap-3">
                 <IllustratedBadge size="md">
                   <Icon name={audience.icon} className="size-5" />
                 </IllustratedBadge>
                 <h2 className="font-heading text-xl font-bold text-pub-navy">{audience.title}</h2>
               </div>
               <p className="mt-3 text-sm leading-relaxed text-pub-muted">{audience.body}</p>
-              <ul className="mt-4 space-y-2">
+              <ul className="!mx-0 mt-4 w-full space-y-2">
                 {audience.points.map((point) => (
-                  <li key={point} className="flex items-start gap-2 text-sm text-pub-text">
+                  <li key={point} className="flex !items-start !justify-start gap-2 text-sm text-pub-text">
                     <span aria-hidden="true" className="mt-0.5 text-pub-blue">✓</span>
                     {point}
                   </li>
@@ -366,11 +439,11 @@ function StepRow({
 }) {
   return (
     <div className="grid gap-6 rounded-2xl border border-pub-border bg-gradient-to-br from-white to-pub-blue-light/20 p-6 shadow-sm transition-all duration-200 hover:border-pub-blue/30 hover:shadow-md sm:p-7 md:grid-cols-[248px_1fr] md:items-center">
-      <div className="flex items-center gap-4 rounded-xl bg-pub-navy p-5 text-white">
+      <div className="flex items-center gap-4 rounded-xl bg-pub-navy p-5 !text-left text-white">
         <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-white/15">
           <Icon name={icon} className="size-7" />
         </span>
-        <div>
+        <div className="!text-left">
           <h3 className="font-heading text-base font-bold">{title}</h3>
           <p className="mt-1.5 text-sm text-white/75">{subtitle}</p>
         </div>
@@ -498,7 +571,7 @@ function Approach() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-8 sm:py-10 lg:py-10 sm:px-6">
       <div className="grid gap-8 rounded-2xl bg-pub-blue-light p-6 sm:p-8 lg:grid-cols-2 lg:items-center">
-        <div>
+        <div className="!text-left">
           <h2 className="font-heading text-2xl font-bold leading-tight text-pub-navy sm:text-3xl">
             {home.approach.heading.map((part) => (
               <span key={part.text} className={part.accent ? 'text-pub-blue' : undefined}>
@@ -509,7 +582,7 @@ function Approach() {
           <p className="mt-3 max-w-md text-sm leading-relaxed text-pub-muted sm:text-base">{home.approach.body}</p>
           <ul className="mt-5 space-y-2.5">
             {home.approach.points.map((point) => (
-              <li key={point} className="flex items-start gap-2 text-sm text-pub-text">
+              <li key={point} className="flex !items-start !justify-start gap-2 text-sm text-pub-text">
                 <span aria-hidden="true" className="mt-0.5 text-pub-blue">✓</span>
                 {point}
               </li>
@@ -535,7 +608,7 @@ function ContactBand() {
         <div className="relative grid gap-8 overflow-hidden rounded-2xl bg-pub-navy p-6 text-white sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center">
           <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-pub-blue/30 blur-3xl" />
           <h2 className="relative font-heading text-xl font-bold sm:text-2xl">{contact.heading}</h2>
-          <div className="relative grid gap-3 sm:grid-cols-3 lg:w-[46rem]">
+          <div className="relative grid items-stretch gap-3 sm:grid-cols-3 lg:w-[46rem]">
             <ContactTile {...contact.whatsapp} />
             <ContactTile {...contact.email} />
             <ContactTile {...contact.phone} />
@@ -566,7 +639,7 @@ function ContactTile({
       href={href}
       aria-disabled={isPlaceholder || undefined}
       onClick={isPlaceholder ? (event) => event.preventDefault() : undefined}
-      className={`flex min-w-0 items-center gap-3 rounded-xl bg-white p-3 text-sm shadow-sm transition-all duration-200 ${
+      className={`flex min-h-28 min-w-0 flex-col items-center justify-center gap-3 rounded-xl bg-white p-4 text-center text-sm shadow-sm transition-all duration-200 sm:min-h-0 sm:flex-row sm:justify-start sm:p-3 sm:text-left ${
         isPlaceholder ? 'cursor-default opacity-70' : 'hover:-translate-y-0.5 hover:shadow-md'
       }`}
     >

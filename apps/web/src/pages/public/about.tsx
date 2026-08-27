@@ -255,20 +255,33 @@ function Impact() {
       <div className="relative mx-auto max-w-6xl">
         <SectionHeading eyebrow={aboutUs.impact.eyebrow} title={aboutUs.impact.heading} />
         <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {home.stats.map((stat) => (
-            <div
-              key={stat.label}
-              className="flex h-full items-center gap-3 rounded-2xl border border-pub-border bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-pub-blue/40 hover:shadow-md"
-            >
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-pub-blue-light text-pub-blue">
-                <Icon name={stat.icon} className="size-5" />
-              </span>
-              <div>
-                <p className="font-heading text-lg font-bold text-pub-navy sm:text-xl">{stat.value}</p>
-                <p className="text-xs text-pub-muted sm:text-sm">{stat.label}</p>
+          {home.stats.map((stat) => {
+            // "Under 3 Days" is the only multi-word value — at the mobile 2-up card
+            // width it wraps to two lines and reads much heavier than the other
+            // three single-line numbers, so it alone gets a smaller mobile size
+            // (unchanged at sm:+, where the card is wide enough to fit on one line).
+            const isLongValue = stat.value.includes(' ');
+            return (
+              <div
+                key={stat.label}
+                className="flex h-full items-center gap-3 rounded-2xl border border-pub-border bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-pub-blue/40 hover:shadow-md"
+              >
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-pub-blue-light text-pub-blue">
+                  <Icon name={stat.icon} className="size-5" />
+                </span>
+                <div>
+                  <p
+                    className={`font-heading font-bold text-pub-navy sm:text-xl ${
+                      isLongValue ? 'text-base leading-tight' : 'text-lg'
+                    }`}
+                  >
+                    {stat.value}
+                  </p>
+                  <p className="text-xs text-pub-muted sm:text-sm">{stat.label}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

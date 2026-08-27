@@ -11,10 +11,8 @@
  * back to the always-visible email/phone/WhatsApp cards above the form.
  */
 
-import { useState, type ComponentType, type FormEvent } from 'react';
+import type { ComponentType } from 'react';
 import { Link } from 'react-router-dom';
-import type { EnquiryType } from '@bktc/shared';
-import { api } from '../../lib/api-client.js';
 import { PUBLIC_ICONS, type PublicIconKey } from '../../components/icons/public-icons.js';
 import { IllustratedBadge, ContactChatArt, IllustrationGlow, DotCluster } from '../../components/illustrations/public-illustrations.js';
 import { contactPage } from '../../content/site.js';
@@ -33,7 +31,7 @@ export function ContactPage() {
       <Hero />
       <HelpStrip />
       <ContactCards />
-      <EnquiryFormSection />
+      <NextStepsSection />
       <FinalCta />
     </main>
   );
@@ -189,184 +187,30 @@ function ContactCards() {
 }
 
 /* ---------------------------------------------------------------------- */
-/* Enquiry form — form card + a "what happens next" rail for balance.      */
+/* What happens next — retained as a balanced support/process section.     */
 /* ---------------------------------------------------------------------- */
 
-const ROLE_OPTIONS = contactPage.form.roleOptions as readonly { value: EnquiryType; label: string }[];
-
-function EnquiryFormSection() {
-  const { form } = contactPage;
-
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [enquiryType, setEnquiryType] = useState<EnquiryType>('CANDIDATE');
-  const [message, setMessage] = useState('');
-  const [status, setStatus] = useState<'idle' | 'busy' | 'success' | 'error'>('idle');
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    setStatus('busy');
-    try {
-      await api.post('/enquiries', {
-        name,
-        email,
-        ...(phone.trim() ? { phone: phone.trim() } : {}),
-        enquiryType,
-        message,
-      });
-      setStatus('success');
-      setName('');
-      setEmail('');
-      setPhone('');
-      setEnquiryType('CANDIDATE');
-      setMessage('');
-    } catch {
-      // Falls back to the generic errorMessage below rather than a raw
-      // server string — the form has no per-field error UI yet, and a
-      // failed request should still point the visitor at the email/phone
-      // cards above rather than a dead end.
-      setStatus('error');
-    }
-  }
-
-  const busy = status === 'busy';
-
+function NextStepsSection() {
+  const { steps } = contactPage.form;
   return (
-    <section className="bg-pub-bg py-8 sm:py-10 lg:py-10">
-      <div className="mx-auto grid max-w-6xl items-stretch gap-8 px-4 sm:px-6 lg:grid-cols-[1.3fr_1fr]">
-        <div className="h-full rounded-2xl border border-pub-border bg-white p-6 shadow-md sm:p-8">
-          <div className="flex items-center gap-3">
-            <IllustratedBadge size="md">
-              <Icon name="send" className="size-5" />
-            </IllustratedBadge>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-pub-blue">{form.eyebrow}</p>
-              <h2 className="font-heading text-2xl font-bold text-pub-navy sm:text-3xl">{form.heading}</h2>
-            </div>
-          </div>
-          <p className="mt-3 text-sm leading-relaxed text-pub-muted">{form.body}</p>
-
-          {status === 'success' ? (
-            <div role="status" className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-              {form.successMessage}
-            </div>
-          ) : (
-            <form onSubmit={submit} noValidate className="mt-6 space-y-4">
-              {status === 'error' && (
-                <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-                  {form.errorMessage}
-                </div>
-              )}
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="contact-name" className="block text-xs font-medium text-pub-navy">
-                    Full Name
-                  </label>
-                  <input
-                    id="contact-name"
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="mt-1.5 w-full rounded-lg border border-pub-border bg-white px-3.5 py-2.5 text-sm text-pub-text placeholder:text-pub-muted focus:border-pub-blue focus:outline-none focus:ring-2 focus:ring-pub-blue/20"
-                    placeholder="Your name"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="contact-email" className="block text-xs font-medium text-pub-navy">
-                    Email
-                  </label>
-                  <input
-                    id="contact-email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="mt-1.5 w-full rounded-lg border border-pub-border bg-white px-3.5 py-2.5 text-sm text-pub-text placeholder:text-pub-muted focus:border-pub-blue focus:outline-none focus:ring-2 focus:ring-pub-blue/20"
-                    placeholder="you@example.com"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="contact-phone" className="block text-xs font-medium text-pub-navy">
-                  Phone <span className="font-normal text-pub-muted">(optional)</span>
-                </label>
-                <input
-                  id="contact-phone"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="mt-1.5 w-full rounded-lg border border-pub-border bg-white px-3.5 py-2.5 text-sm text-pub-text placeholder:text-pub-muted focus:border-pub-blue focus:outline-none focus:ring-2 focus:ring-pub-blue/20"
-                  placeholder="+91 98765 43210"
-                />
-              </div>
-
-              <div>
-                <span className="block text-xs font-medium text-pub-navy">I am a...</span>
-                <div className="mt-1.5 flex flex-wrap gap-2">
-                  {ROLE_OPTIONS.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setEnquiryType(option.value)}
-                      aria-pressed={enquiryType === option.value}
-                      className={`min-h-9 rounded-lg border px-3.5 text-xs font-medium transition-colors ${
-                        enquiryType === option.value
-                          ? 'border-pub-blue bg-pub-blue text-white'
-                          : 'border-pub-border bg-white text-pub-navy hover:bg-pub-bg'
-                      }`}
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="contact-message" className="block text-xs font-medium text-pub-navy">
-                  Message
-                </label>
-                <textarea
-                  id="contact-message"
-                  required
-                  rows={4}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  className="mt-1.5 w-full resize-none rounded-lg border border-pub-border bg-white px-3.5 py-2.5 text-sm text-pub-text placeholder:text-pub-muted focus:border-pub-blue focus:outline-none focus:ring-2 focus:ring-pub-blue/20"
-                  placeholder="How can we help?"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={busy}
-                className="flex min-h-12 w-full items-center justify-center rounded-lg bg-pub-blue px-6 text-sm font-semibold text-white shadow-sm shadow-pub-blue/30 hover:bg-pub-navy disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {busy ? 'Sending…' : form.submitLabel}
-              </button>
-            </form>
-          )}
-        </div>
-
-        <div className="flex h-full flex-col gap-6">
-          <div className="relative mx-auto hidden w-full max-w-xs lg:block">
+    <section className="relative overflow-hidden bg-pub-bg py-8 sm:py-10 lg:py-10">
+      <div aria-hidden="true" className="pointer-events-none absolute -right-20 top-0 h-64 w-64 rounded-full bg-pub-blue-light/60 blur-3xl" />
+      <div className="relative mx-auto grid max-w-4xl items-center gap-8 px-4 sm:px-6 md:grid-cols-[0.9fr_1.1fr]">
+          <div className="relative mx-auto w-full max-w-xs">
             <IllustrationGlow className="inset-5" />
             <DotCluster className="right-0 top-0 h-12 w-14" />
             <ContactChatArt className="relative h-auto w-full" />
           </div>
 
-          <div className="flex flex-1 flex-col rounded-2xl border border-pub-border bg-white p-6 shadow-sm transition-all duration-200 hover:border-pub-blue/30 hover:shadow-md">
+          <div className="rounded-2xl border border-pub-border bg-white p-6 shadow-sm transition-all duration-200 hover:border-pub-blue/30 hover:shadow-md sm:p-8">
             <h3 className="font-heading text-sm font-bold text-pub-navy">What happens next</h3>
             <ol className="mt-4 space-y-4">
-              {form.steps.map((step, index) => (
+              {steps.map((step, index) => (
                 <li key={step.title} className="relative flex gap-3">
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-pub-blue-light text-xs font-bold text-pub-blue">
                     {index + 1}
                   </span>
-                  {index < form.steps.length - 1 && (
+                  {index < steps.length - 1 && (
                     <span aria-hidden="true" className="absolute left-[13px] top-7 bottom-[-16px] w-px bg-pub-blue/25" />
                   )}
                   <div>
@@ -377,7 +221,6 @@ function EnquiryFormSection() {
               ))}
             </ol>
           </div>
-        </div>
       </div>
     </section>
   );

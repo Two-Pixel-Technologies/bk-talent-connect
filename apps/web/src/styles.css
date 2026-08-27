@@ -217,6 +217,18 @@
     .about-public section > .grid {
       row-gap: 1.5rem;
     }
+
+    .mobile-refine-scope :is(.rounded-xl, .rounded-2xl).border-pub-border {
+      border-color: color-mix(in srgb, var(--color-pub-blue) 27%, white);
+      box-shadow: 0 7px 20px rgb(23 58 112 / 9%);
+    }
+
+    .mobile-refine-scope .public-icon-circle {
+      border-color: color-mix(in srgb, var(--color-pub-blue) 34%, white);
+      box-shadow:
+        0 6px 16px rgb(47 111 237 / 14%),
+        inset 0 0 0 1px rgb(255 255 255 / 75%);
+    }
   }
 
   .public-site :is(.rounded-xl, .rounded-2xl).border-pub-border {

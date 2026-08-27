@@ -478,6 +478,7 @@ export const contactPage = {
 export const publicNav = {
   logo: { title: 'BK Talent Connect', subtitle: 'Talent Recruitment Platform' },
   links: [
+    { label: 'Home', href: '/' },
     { label: 'For Candidates', href: '/for-candidates' },
     { label: 'For Employers', href: '/for-employers' },
     { label: 'About Us', href: '/about' },
@@ -494,8 +495,6 @@ export const publicFooter = {
       links: [
         { label: 'For Candidates', href: '/for-candidates' },
         { label: 'For Employers', href: '/for-employers' },
-        { label: 'How It Works', href: '/#how-it-works' },
-        { label: 'Industries', href: '/#industries' },
       ],
     },
     {
