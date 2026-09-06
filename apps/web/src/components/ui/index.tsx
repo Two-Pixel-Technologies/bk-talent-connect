@@ -19,10 +19,13 @@ import type {
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 const BUTTON_STYLES: Record<ButtonVariant, string> = {
-  primary: 'bg-brand-600 text-white hover:bg-brand-700 disabled:bg-brand-300',
-  secondary: 'bg-white text-brand-700 border border-slate-300 hover:bg-slate-50',
+  primary:
+    'bg-brand-600 text-white shadow-sm shadow-brand-900/10 hover:bg-brand-700 disabled:bg-brand-300 disabled:shadow-none',
+  secondary:
+    'bg-white text-brand-700 border border-slate-300 shadow-sm shadow-slate-900/[0.02] hover:bg-slate-50 hover:border-slate-400',
   ghost: 'text-brand-700 hover:bg-brand-50',
-  danger: 'bg-accent-600 text-white hover:bg-accent-500 disabled:bg-accent-400',
+  danger:
+    'bg-accent-600 text-white shadow-sm shadow-accent-900/10 hover:bg-accent-500 disabled:bg-accent-400 disabled:shadow-none',
 };
 
 export function Button({
@@ -38,7 +41,7 @@ export function Button({
       disabled={props.disabled ?? loading}
       // min-h-11 is 44px — the minimum reliable touch target. Without it the
       // padding alone gives ~42px, which is a measurably worse tap accuracy.
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed ${BUTTON_STYLES[variant]} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${BUTTON_STYLES[variant]} ${className}`}
     >
       {loading && (
         <span
@@ -72,7 +75,7 @@ export function Field({
 }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-slate-700">
+      <label htmlFor={htmlFor} className="block text-sm font-semibold text-slate-800">
         {label}
         {required && <span className="ml-0.5 text-accent-600">*</span>}
       </label>
@@ -95,7 +98,7 @@ export function Field({
  * min-h-11 (44px) meets the minimum touch target size on mobile.
  */
 const CONTROL_BASE =
-  'w-full min-h-11 rounded-lg border px-3 py-2.5 text-base sm:text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500';
+  'w-full min-h-11 rounded-lg border px-3 py-2.5 text-base sm:text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-100 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500';
 
 export function Input({
   invalid,
@@ -190,16 +193,25 @@ export function Alert({
   children?: ReactNode;
 }) {
   return (
-    <div role={tone === 'error' ? 'alert' : 'status'} className={`rounded-lg border p-4 text-sm ${ALERT_STYLES[tone]}`}>
+    <div role={tone === 'error' ? 'alert' : 'status'} className={`rounded-xl border p-4 text-sm ${ALERT_STYLES[tone]}`}>
       {title && <p className="font-semibold">{title}</p>}
       {children && <div className={title ? 'mt-1' : ''}>{children}</div>}
     </div>
   );
 }
 
+/**
+ * The base surface for every section on a portal page.
+ *
+ * The border/shadow pairing is deliberately light — a hairline border plus a
+ * shadow of almost nothing — so sections read as distinct surfaces without
+ * every card competing for attention the way a heavier shadow would.
+ */
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 ${className}`}>
+    <div
+      className={`rounded-xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:p-6 ${className}`}
+    >
       {children}
     </div>
   );
@@ -216,8 +228,8 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center">
-      <p className="font-medium text-slate-700">{title}</p>
+    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-10 text-center">
+      <p className="font-semibold text-slate-700">{title}</p>
       {description && <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">{description}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
@@ -226,14 +238,16 @@ export function EmptyState({
 
 export function Badge({ tone = 'slate', children }: { tone?: string; children: ReactNode }) {
   const tones: Record<string, string> = {
-    slate: 'bg-slate-100 text-slate-700',
-    green: 'bg-emerald-100 text-emerald-800',
-    amber: 'bg-amber-100 text-amber-800',
-    red: 'bg-red-100 text-red-800',
-    brand: 'bg-brand-100 text-brand-800',
+    slate: 'bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200/70',
+    green: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
+    amber: 'bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200',
+    red: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
+    brand: 'bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200',
   };
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${tones[tone] ?? tones.slate}`}>
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${tones[tone] ?? tones.slate}`}
+    >
       {children}
     </span>
   );

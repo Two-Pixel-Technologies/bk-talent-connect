@@ -52,8 +52,8 @@ export function PrivacyPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-brand-900">Your data</h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <h1 className="text-2xl font-bold tracking-tight text-brand-900">Your data</h1>
+        <p className="mt-1.5 text-sm text-slate-600">
           What we hold, who sees it, and how to have it removed.
         </p>
       </div>
@@ -126,8 +126,8 @@ export function PrivacyPage() {
               </Alert>
             </div>
           ) : confirming ? (
-            <div className="mt-4 rounded-lg border border-accent-200 bg-accent-50 p-4">
-              <p className="text-sm font-medium text-accent-900">
+            <div className="mt-4 rounded-xl border border-accent-200 bg-accent-50 p-4">
+              <p className="text-sm font-semibold text-accent-900">
                 This cannot be undone once we action it.
               </p>
               <div className="mt-3">

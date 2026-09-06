@@ -15,6 +15,7 @@ import { useTaxonomy } from '../../features/candidate/use-profile.js';
 import { Alert, Badge, Card, EmptyState, Input, Select } from '../../components/ui/index.js';
 import { Pagination } from '../../components/pagination.js';
 import { QueryState } from '../../components/query-state.js';
+import { CANDIDATE_CARD } from './candidate-style.js';
 
 /**
  * The two states that need the candidate to DO something say so. Previously all
@@ -28,7 +29,7 @@ const GATE_COPY: Record<
   DRAFT: {
     tone: 'info',
     title: 'Finish your profile to see roles',
-    body: 'Complete the five steps and submit — our team reviews it, usually within a working day.',
+    body: 'Complete the five steps and submit. Our team reviews it, usually within a working day.',
     action: 'Continue my profile →',
   },
   SUBMITTED: {
@@ -71,7 +72,7 @@ export function BrowseJobsPage() {
     const gate = GATE_COPY[status] ?? GATE_COPY.SUBMITTED!;
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-brand-900">Open roles</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-brand-900">Open roles</h1>
         <Alert tone={gate.tone} title={gate.title}>
           {gate.body}{' '}
           <Link to="/candidate/profile" className="font-medium underline">
@@ -90,15 +91,16 @@ export function BrowseJobsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-brand-900">Open roles</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Every role here has been reviewed by our team. Apply in one click — your profile is your
+        <p className="text-xs font-semibold tracking-widest text-pub-blue uppercase">Job Search</p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-brand-900">Open roles</h1>
+        <p className="mt-1.5 text-sm text-slate-600">
+          Every role here has been reviewed by our team. Apply in one click. Your profile is your
           application.
         </p>
       </div>
 
-      <Card>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Card className={CANDIDATE_CARD}>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Input
             value={filters.search}
             onChange={(e) => set('search', e.target.value)}
@@ -152,12 +154,12 @@ function JobCard({ job }: { job: BrowseJob }) {
   return (
     <Link
       to={`/candidate/jobs/${job.id}`}
-      className="block rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-brand-300 sm:p-5"
+      className={`block rounded-xl border bg-white p-4 transition-all hover:border-brand-300 hover:shadow-[0_6px_18px_rgba(15,23,42,0.08)] sm:p-5 ${CANDIDATE_CARD}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-semibold text-brand-900">{job.title}</p>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="font-semibold text-slate-900">{job.title}</p>
+          <p className="mt-1 text-sm text-slate-500">
             {[job.functionName, job.sectorName].filter(Boolean).join(' · ')}
           </p>
         </div>

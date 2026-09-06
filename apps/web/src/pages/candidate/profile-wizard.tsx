@@ -42,6 +42,7 @@ import { diffProfile, draftFromProfile } from '../../features/candidate/profile-
 import { SkillsInput } from '../../components/skills-input.js';
 import { QueryState } from '../../components/query-state.js';
 import { Alert, Badge, Button, Card, Field, Input, Select, Textarea } from '../../components/ui/index.js';
+import { CANDIDATE_CARD } from './candidate-style.js';
 
 type Draft = UpdateProfileInput;
 
@@ -100,7 +101,7 @@ function fieldLabel(path: string): string {
   const label = FIELD_LABELS[leaf] ?? leaf;
 
   if (parts[0] === 'experiences' && parts.length === 3) {
-    return `Role ${Number(parts[1]) + 1} — ${label}: `;
+    return `Role ${Number(parts[1]) + 1}: ${label}: `;
   }
   return `${label}: `;
 }
@@ -198,14 +199,15 @@ export function ProfileWizardPage() {
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brand-900">Your profile</h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="text-xs font-semibold tracking-widest text-pub-blue uppercase">Candidate Profile</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-brand-900">Your profile</h1>
+          <p className="mt-1.5 text-sm text-slate-600">
             This is what our team reviews, and what employers see once you apply.
           </p>
         </div>
         <div className="sm:text-right">
-          <p className="text-sm font-medium text-slate-700">{profile.completionPercent}% complete</p>
-          <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-200 sm:w-40">
+          <p className="text-sm font-semibold text-slate-700">{profile.completionPercent}% complete</p>
+          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 sm:w-40">
             <div
               className="h-full rounded-full bg-brand-600 transition-all"
               style={{ width: `${profile.completionPercent}%` }}
@@ -245,7 +247,7 @@ export function ProfileWizardPage() {
           <p>
             You&rsquo;ve changed {confirmMaterial.join(', ')}. Because our team already approved your
             profile, saving this puts it back into review and pauses job browsing until we approve
-            it again — usually within a day.
+            it again, usually within a day.
           </p>
           <div className="mt-3 flex gap-2">
             <Button onClick={() => void save()} loading={update.isPending}>
@@ -258,7 +260,7 @@ export function ProfileWizardPage() {
         </Alert>
       )}
 
-      <Card>
+      <Card className={CANDIDATE_CARD}>
         <fieldset disabled={locked} className="space-y-5">
           {locked && (
             <p className="text-sm text-slate-500">
@@ -368,7 +370,7 @@ function StatusBanner({ profile }: { profile: CandidateProfile }) {
 function Stepper({ current, onSelect }: { current: number; onSelect: (i: number) => void }) {
   return (
     <nav aria-label="Profile steps">
-      <ol className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
+      <ol className="flex touch-pan-x gap-2.5 overflow-x-auto overscroll-x-contain px-1 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-visible">
         {PROFILE_STEPS.map((step, index) => {
           const active = index === current;
           return (
@@ -377,8 +379,10 @@ function Stepper({ current, onSelect }: { current: number; onSelect: (i: number)
                 type="button"
                 onClick={() => onSelect(index)}
                 aria-current={active ? 'step' : undefined}
-                className={`min-h-11 shrink-0 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
-                  active ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'
+                className={`min-h-11 shrink-0 rounded-lg border px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
+                  active
+                    ? 'border-brand-600 bg-brand-600 text-white shadow-sm shadow-brand-900/10'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 <span className="mr-1.5 opacity-60">{index + 1}</span>
@@ -463,7 +467,7 @@ function BasicStep({ draft, set, taxonomy }: StepProps) {
             disabled={!selectedState}
             onChange={(e) => set('citySlug', e.target.value)}
           >
-            <option value="">{selectedState ? 'Select a city' : '—'}</option>
+            <option value="">{selectedState ? 'Select a city' : 'Select a state first'}</option>
             {citiesForState.map((c) => (
               <option key={c.slug} value={c.slug}>{c.name}</option>
             ))}
@@ -644,7 +648,7 @@ function HistoryStep({ draft, set }: StepProps) {
             <Field
               label="What did you work on?"
               htmlFor={`domains-${index}`}
-              hint="Comma-separated — e.g. rotating equipment, HAZOP, tech transfer"
+              hint="Comma-separated, e.g. rotating equipment, HAZOP, tech transfer"
             >
               <Input
                 id={`domains-${index}`}
