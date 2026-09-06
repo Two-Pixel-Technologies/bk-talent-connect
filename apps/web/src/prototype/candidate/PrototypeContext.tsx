@@ -87,7 +87,6 @@ export function PrototypeProvider({ children }: { children: ReactNode }) {
       markAllNotificationsRead,
       unreadCount,
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [candidate, applications, notifications, unreadCount],
   );
 
