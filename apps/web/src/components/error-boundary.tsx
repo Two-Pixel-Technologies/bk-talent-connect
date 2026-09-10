@@ -53,7 +53,7 @@ export class ErrorBoundary extends Component<Props, State> {
       <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 text-center">
         <h1 className="text-2xl font-semibold text-brand-900">Something went wrong</h1>
         <p className="mt-2 text-slate-600">
-          Sorry — this page ran into a problem. Your saved work is not affected.
+          Sorry - this page ran into a problem. Your saved work is not affected.
         </p>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">

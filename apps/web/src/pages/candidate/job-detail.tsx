@@ -84,7 +84,7 @@ export function JobDetailPage() {
             label="Experience"
             value={
               job.minExperience != null && job.maxExperience != null
-                ? `${job.minExperience}–${job.maxExperience} years`
+                ? `${job.minExperience}-${job.maxExperience} years`
                 : null
             }
           />

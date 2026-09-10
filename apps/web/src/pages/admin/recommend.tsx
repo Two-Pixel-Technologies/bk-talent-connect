@@ -24,6 +24,7 @@ import { Alert, Badge, Button, Card, EmptyState, Field, Input } from '../../comp
 import { Pagination } from '../../components/pagination.js';
 import { QueryState } from '../../components/query-state.js';
 import { useDebounced } from '../../lib/use-debounced.js';
+import { ADMIN_CARD } from './admin-style.js';
 
 type AdminJob = {
   id: string;
@@ -63,7 +64,10 @@ export function RecommendPage() {
         <Link to="/admin/jobs" className="text-sm text-brand-700 hover:underline">
           ← Back to postings
         </Link>
-        <h1 className="mt-2 text-2xl font-bold text-brand-900">
+        <p className="mt-3 text-xs font-semibold tracking-widest text-pub-blue uppercase">
+          Recommendations
+        </p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-brand-900">
           Who should we put forward?
         </h1>
         {job.data && (
@@ -82,7 +86,7 @@ export function RecommendPage() {
       )}
 
       {job.data && job.data.requiredSkills.length > 0 && (
-        <Card>
+        <Card className={ADMIN_CARD}>
           <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
             Ranked against these skills
           </p>
@@ -176,7 +180,7 @@ function CandidateCard({
   onRecommend: () => void;
 }) {
   return (
-    <Card>
+    <Card className={ADMIN_CARD}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-semibold text-brand-900">{c.fullName}</p>

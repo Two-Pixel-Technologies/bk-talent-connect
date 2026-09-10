@@ -20,6 +20,7 @@ import { ReviewPanel } from '../../components/review-panel.js';
 import { QueueShell, QueueList } from './queue-shell.js';
 import { useQueueScreen } from '../../features/admin/use-queue-screen.js';
 import { Alert, Badge, Card } from '../../components/ui/index.js';
+import { ADMIN_CARD } from './admin-style.js';
 
 const FILTERS = [
   { value: 'PENDING_APPROVAL', label: 'Awaiting approval' },
@@ -87,7 +88,7 @@ export function JobQueuePage() {
               className={`w-full rounded-xl border p-4 text-left transition-colors ${
                 selectedId === j.id
                   ? 'border-brand-400 bg-brand-50'
-                  : 'border-slate-200 bg-white hover:border-brand-300'
+                  : `bg-white hover:border-brand-300 ${ADMIN_CARD}`
               }`}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -133,7 +134,7 @@ export function JobQueuePage() {
 
 function JobDetail({ job: j }: { job: AdminJob }) {
   return (
-    <Card>
+    <Card className={ADMIN_CARD}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold text-brand-900">{j.title}</h2>

@@ -475,12 +475,26 @@ function BasicStep({ draft, set, taxonomy }: StepProps) {
         </Field>
       </div>
 
-      <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <label
+        className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
+          draft.openToRelocation
+            ? 'border-brand-200 bg-brand-50/70'
+            : 'border-slate-200 bg-slate-50 hover:bg-slate-100/70'
+        }`}
+      >
+        {/*
+          * The shared input reset (styles.css) applies appearance-none to
+          * every input/select/textarea for Safari's rounded-input quirk,
+          * which also stripped this checkbox's native box and tick with
+          * nothing put back in its place — it worked, it just had no visible
+          * control. appearance-auto restores it here, scoped to this one
+          * checkbox rather than touching the shared reset.
+          */}
         <input
           type="checkbox"
           checked={draft.openToRelocation ?? false}
           onChange={(e) => set('openToRelocation', e.target.checked)}
-          className="mt-0.5 size-4 rounded border-slate-300"
+          className="mt-0.5 size-4 shrink-0 appearance-auto rounded border-slate-300 accent-brand-600"
         />
         <span className="text-sm text-slate-700">
           I&rsquo;m open to relocating

@@ -26,6 +26,7 @@ import { Pagination } from '../../components/pagination.js';
 import { QueryState } from '../../components/query-state.js';
 import { NotesPanel } from '../../components/notes-panel.js';
 import { useSalaryComparison } from '../../features/admin/use-admin.js';
+import { ADMIN_CARD } from './admin-style.js';
 
 type PipelineApplication = {
   id: string;
@@ -118,16 +119,17 @@ export function PipelinePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-brand-900">Pipeline</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Employers can shortlist. Everything after that — arranging interviews, recording outcomes
-          — is yours.
+        <p className="text-xs font-semibold tracking-widest text-pub-blue uppercase">Pipeline</p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-brand-900">Pipeline</h1>
+        <p className="mt-1.5 text-sm text-slate-600">
+          Employers can shortlist. Everything after that - arranging interviews, recording outcomes
+          - is yours.
         </p>
       </div>
 
       {actionError && <Alert tone="error">{actionError.message}</Alert>}
 
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {FILTERS.map((f) => (
           <button
             key={f.value || 'all'}
@@ -136,8 +138,10 @@ export function PipelinePage() {
               setPage(1);
               setStage(f.value);
             }}
-            className={`min-h-11 shrink-0 rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors ${
-              stage === f.value ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'
+            className={`min-h-11 shrink-0 rounded-lg border px-3 text-sm font-semibold whitespace-nowrap transition-colors ${
+              stage === f.value
+                ? 'border-brand-600 bg-brand-600 text-white shadow-sm shadow-brand-900/10'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
             }`}
           >
             {f.label}
@@ -222,7 +226,7 @@ function PipelineCard({
   const available = detail.data?.availableStages ?? [];
 
   return (
-    <Card>
+    <Card className={ADMIN_CARD}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">

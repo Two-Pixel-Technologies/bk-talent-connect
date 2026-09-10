@@ -68,8 +68,9 @@ export function ErasurePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-brand-900">Erasure requests</h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="text-xs font-semibold tracking-widest text-pub-blue uppercase">Erasure</p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-brand-900">Erasure requests</h1>
+        <p className="mt-1.5 text-sm text-slate-600">
           People asking us to delete what we hold about them. Actioning one removes their profile,
           their CV and their contact details permanently.
         </p>

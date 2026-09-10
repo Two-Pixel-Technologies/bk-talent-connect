@@ -8,6 +8,7 @@
 import { Link } from 'react-router-dom';
 import { useStats } from '../../features/admin/use-admin.js';
 import { Card } from '../../components/ui/index.js';
+import { ADMIN_CARD } from './admin-style.js';
 
 export function AdminDashboard() {
   const { data, isPending, error, refetch } = useStats();
@@ -34,8 +35,9 @@ export function AdminDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-brand-900">Overview</h1>
-        <p className="mt-1 text-sm text-slate-600">{summary}</p>
+        <p className="text-xs font-semibold tracking-widest text-pub-blue uppercase">Overview</p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-brand-900">Overview</h1>
+        <p className="mt-1.5 text-sm text-slate-600">{summary}</p>
         {error && (
           <button
             type="button"
@@ -87,7 +89,7 @@ export function AdminDashboard() {
 
       <Link
         to="/admin/pipeline"
-        className="block rounded-xl border border-slate-200 bg-white p-5 transition-colors hover:border-brand-300"
+        className={`block rounded-xl border bg-white p-5 transition-all hover:border-brand-300 hover:shadow-[0_6px_18px_rgba(15,23,42,0.08)] ${ADMIN_CARD}`}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -104,7 +106,7 @@ export function AdminDashboard() {
         </p>
       </Link>
 
-      <Card>
+      <Card className={ADMIN_CARD}>
         <h2 className="font-semibold text-brand-900">How the gates work</h2>
         <ul className="mt-4 space-y-2.5 text-sm text-slate-600">
           <li>
@@ -142,10 +144,10 @@ function QueueCard({
   return (
     <Link
       to={to}
-      className={`block rounded-xl border p-5 transition-colors ${
+      className={`block rounded-xl border p-5 transition-all hover:shadow-[0_6px_18px_rgba(15,23,42,0.08)] ${
         waiting
           ? 'border-amber-300 bg-amber-50 hover:border-amber-400'
-          : 'border-slate-200 bg-white hover:border-brand-300'
+          : `bg-white hover:border-brand-300 ${ADMIN_CARD}`
       }`}
     >
       <p className={`text-3xl font-bold ${waiting ? 'text-amber-700' : 'text-slate-400'}`}>

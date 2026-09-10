@@ -131,6 +131,24 @@ export function useEmployerJob(id: string | undefined) {
   });
 }
 
+/**
+ * How many people have applied to one posting, for a job-list card.
+ *
+ * There is no dedicated count endpoint — this reuses the existing applicant
+ * list with pageSize 1 purely to read its real `total`, rather than adding a
+ * new API. Fine at the scale this list already assumes (postings are shown a
+ * handful at a time, not hundreds).
+ */
+export function useApplicantCount(jobId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['employer', 'applicant-count', jobId],
+    queryFn: () =>
+      api.get<{ total: number }>(`/employer/jobs/${jobId}/applications?pageSize=1`),
+    enabled,
+    staleTime: 60_000,
+  });
+}
+
 export function useCreateJob() {
   const queryClient = useQueryClient();
   return useMutation({

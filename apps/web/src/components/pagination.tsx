@@ -37,7 +37,7 @@ export function Pagination({
           <>1 {noun}</>
         ) : (
           <>
-            Showing <span className="font-medium text-slate-800">{first}–{last}</span> of {total}{' '}
+            Showing <span className="font-medium text-slate-800">{first}-{last}</span> of {total}{' '}
             {noun}s
           </>
         )}

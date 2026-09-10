@@ -36,6 +36,7 @@ import { SkillsInput } from '../../components/skills-input.js';
 import { QueryState } from '../../components/query-state.js';
 import { MutationFeedback } from '../../components/mutation-feedback.js';
 import { Alert, Badge, Button, Card, Field, Input, Select, Textarea } from '../../components/ui/index.js';
+import { EMPLOYER_CARD } from './employer-style.js';
 
 type Draft = UpdateJobInput;
 
@@ -172,15 +173,18 @@ export function JobEditorPage() {
       <StatusBanner job={job} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold text-brand-900">{job.title}</h1>
-          <Badge tone={JOB_STATUS_TONE[job.status] ?? 'slate'}>
-            {JOB_STATUS_LABEL[job.status] ?? job.status}
-          </Badge>
+        <div>
+          <p className="text-xs font-semibold tracking-widest text-pub-blue uppercase">Job Posting</p>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-brand-900">{job.title}</h1>
+            <Badge tone={JOB_STATUS_TONE[job.status] ?? 'slate'}>
+              {JOB_STATUS_LABEL[job.status] ?? job.status}
+            </Badge>
+          </div>
         </div>
         <Link
           to={`/employer/jobs/${job.id}/applicants`}
-          className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-4 text-sm font-medium text-brand-700 hover:bg-slate-50"
+          className="inline-flex min-h-11 items-center rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white shadow-sm shadow-brand-900/10 transition-colors hover:bg-brand-700"
         >
           View applicants
         </Link>
@@ -254,7 +258,7 @@ export function JobEditorPage() {
         </Alert>
       )}
 
-      <Card>
+      <Card className={EMPLOYER_CARD}>
         <fieldset disabled={readOnly} className="space-y-5">
           {readOnly && (
             <p className="text-sm text-slate-500">
@@ -263,6 +267,10 @@ export function JobEditorPage() {
                 : 'This posting is closed. Reopen it to make changes.'}
             </p>
           )}
+
+          <h2 className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+            Role basics
+          </h2>
 
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Job title" htmlFor="title" required>
@@ -316,7 +324,7 @@ export function JobEditorPage() {
             </Field>
             <Field label="City" htmlFor="citySlug" required hint={draft.state ? undefined : 'Choose a state first'}>
               <Select id="citySlug" value={draft.citySlug ?? ''} disabled={!draft.state} onChange={(e) => set('citySlug', e.target.value)}>
-                <option value="">{draft.state ? 'Select' : '—'}</option>
+                <option value="">{draft.state ? 'Select' : '-'}</option>
                 {cities.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
               </Select>
             </Field>
@@ -327,6 +335,10 @@ export function JobEditorPage() {
               </Select>
             </Field>
           </div>
+
+          <h2 className="border-t border-slate-100 pt-5 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+            Requirements
+          </h2>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Minimum experience" htmlFor="minExperience" required hint="Years">
@@ -354,7 +366,7 @@ export function JobEditorPage() {
             />
           </Field>
 
-          <Field label="Good to have" htmlFor="goodToHaveSkills" hint="Optional — nice, but not a dealbreaker">
+          <Field label="Good to have" htmlFor="goodToHaveSkills" hint="Optional - nice, but not a dealbreaker">
             <SkillsInput
               id="goodToHaveSkills"
               value={draft.goodToHaveSkills ?? []}
@@ -365,8 +377,12 @@ export function JobEditorPage() {
             />
           </Field>
 
+          <h2 className="border-t border-slate-100 pt-5 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+            Role description
+          </h2>
+
           <Field
-            label="Role description"
+            label="Responsibilities"
             htmlFor="description"
             required
             hint="What the person will own, the team, the plant. Candidates read this before applying."
@@ -389,18 +405,27 @@ export function JobEditorPage() {
             </Alert>
           )}
 
+          <h2 className="border-t border-slate-100 pt-5 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+            Joining details
+          </h2>
+
           <Field label="Target joining date" htmlFor="targetJoiningDate" hint="Optional">
             <Input id="targetJoiningDate" type="date" value={draft.targetJoiningDate ?? ''} onChange={(e) => set('targetJoiningDate', e.target.value)} />
           </Field>
 
           <div className="border-t border-slate-100 pt-5">
-            <Alert tone="info" title="🔒 Your salary band is confidential">
-              It is visible to the BK Talent Connect team only, and is never shown to candidates. We
-              use it to make sure the people we send you are in range.
-            </Alert>
-            <div className="mt-4 grid gap-5 sm:grid-cols-2">
-              <SalaryField label="Band minimum" id="salaryBandMinLpa" value={draft.salaryBandMinLpa} onChange={(v) => set('salaryBandMinLpa', v)} />
-              <SalaryField label="Band maximum" id="salaryBandMaxLpa" value={draft.salaryBandMaxLpa} onChange={(v) => set('salaryBandMaxLpa', v)} />
+            <h2 className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+              Private salary band
+            </h2>
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+              <Alert tone="info" title="🔒 Your salary band is confidential">
+                It is visible to the BK Talent Connect team only, and is never shown to candidates. We
+                use it to make sure the people we send you are in range.
+              </Alert>
+              <div className="mt-4 grid gap-5 sm:grid-cols-2">
+                <SalaryField label="Band minimum" id="salaryBandMinLpa" value={draft.salaryBandMinLpa} onChange={(v) => set('salaryBandMinLpa', v)} />
+                <SalaryField label="Band maximum" id="salaryBandMaxLpa" value={draft.salaryBandMaxLpa} onChange={(v) => set('salaryBandMaxLpa', v)} />
+              </div>
             </div>
           </div>
         </fieldset>

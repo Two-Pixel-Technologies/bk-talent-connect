@@ -11,6 +11,7 @@
 
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api-client.js';
 import { useAuth } from '../../features/auth/auth-context.js';
 import { Button } from '../ui/index.js';
@@ -29,12 +30,25 @@ export function PortalLayout({
 }) {
   const { user, refresh } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
   const isPublic = variant === 'public';
 
   async function signOut() {
     await api.post('/auth/logout');
+    // refresh() first, unchanged from before: it invalidates and refetches
+    // ['auth', 'me'] itself, so this has to run while that query still exists
+    // in the cache — clearing it out from under refresh() is what silently
+    // broke the refetch when tried the other way round.
     await refresh();
+    // Every candidate/employer/admin-scoped query (profile, applications,
+    // notifications, interviews, ...) is keyed without a user id, because the
+    // app only ever has one signed-in user at a time — except across this
+    // exact boundary. Without clearing here, the next person to sign in on
+    // this tab inherits whoever was signed in before them until something
+    // happens to remount the query or the page is hard-refreshed. 'auth' is
+    // excluded because refresh() just populated it correctly above.
+    queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== 'auth' });
     navigate('/login', { replace: true });
   }
 
@@ -89,9 +103,20 @@ export function PortalLayout({
             </Link>
           )}
 
-          <nav className={`ml-auto hidden items-center md:flex ${isPublic ? 'gap-5' : 'gap-1'}`}>
+          {/* min-w-0 + overflow-x-auto: a nav with more items than fit (Admin
+              has ten) scrolls within its own box instead of forcing the whole
+              header wider than the viewport. Inert for Candidate/Employer,
+              whose short navs never come close to needing it. */}
+          <nav
+            className={`ml-auto hidden min-w-0 items-center overflow-x-auto md:flex ${isPublic ? 'gap-5' : 'gap-1'} [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+          >
             {nav.map((item) => (
-              <NavLink key={item.to} to={item.to} end={item.end ?? false} className={desktopLinkClass}>
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end ?? false}
+                className={({ isActive }) => `shrink-0 ${desktopLinkClass({ isActive })}`}
+              >
                 {item.label}
               </NavLink>
             ))}

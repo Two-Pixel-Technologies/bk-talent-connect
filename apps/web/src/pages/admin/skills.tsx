@@ -41,8 +41,9 @@ export function SkillsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-brand-900">Skills</h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="text-xs font-semibold tracking-widest text-pub-blue uppercase">Skills</p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-brand-900">Skills</h1>
+        <p className="mt-1.5 text-sm text-slate-600">
           Anything a candidate or employer typed that we have not seen before waits here. Fold
           duplicates into the name you want to keep.
         </p>

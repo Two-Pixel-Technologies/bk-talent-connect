@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../lib/api-client.js';
 import { useAuth, HOME_FOR_ROLE, type CurrentUser } from '../../features/auth/auth-context.js';
 import { AuthShell } from './auth-shell.js';
@@ -9,6 +10,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { refresh } = useAuth();
+  const queryClient = useQueryClient();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,7 +23,18 @@ export function LoginPage() {
     setError(null);
     try {
       const user = await api.post<CurrentUser>('/auth/login', { email, password });
+      // refresh() first and unchanged, exactly as it ran before this
+      // defense-in-depth was added: it invalidates and refetches
+      // ['auth', 'me'] itself, so it needs that query to still be in the
+      // cache when it runs.
       await refresh();
+      // Defense-in-depth: signOut() already clears the rest of the cache,
+      // but this page is reachable without it too (an expired session, a
+      // direct /login visit). Clearing again here — everything except the
+      // 'auth' entry refresh() just populated — means a second account
+      // logging in on this tab can never inherit whatever the first left
+      // behind.
+      queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== 'auth' });
       const from = (location.state as { from?: string } | null)?.from;
       navigate(from ?? HOME_FOR_ROLE[user.role], { replace: true });
     } catch (err) {

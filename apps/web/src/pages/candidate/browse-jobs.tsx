@@ -171,7 +171,7 @@ function JobCard({ job }: { job: BrowseJob }) {
         {job.workType && <span>{WORK_TYPE_LABELS[job.workType] ?? job.workType}</span>}
         {job.minExperience != null && job.maxExperience != null && (
           <span>
-            {job.minExperience}–{job.maxExperience} yrs
+            {job.minExperience}-{job.maxExperience} yrs
           </span>
         )}
         {job.numberOfPositions > 1 && <span>{job.numberOfPositions} positions</span>}

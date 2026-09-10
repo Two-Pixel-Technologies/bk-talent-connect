@@ -22,6 +22,7 @@ import {
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Select, Textarea } from '../../components/ui/index.js';
 import { QueryState } from '../../components/query-state.js';
 import { Modal } from '../../components/modal.js';
+import { ADMIN_CARD } from './admin-style.js';
 
 const MODE_LABEL: Record<InterviewMode, string> = {
   PHONE: 'Phone',
@@ -36,8 +37,9 @@ export function CoordinationPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-brand-900">Interviews</h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="text-xs font-semibold tracking-widest text-pub-blue uppercase">Interviews</p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-brand-900">Interviews</h1>
+        <p className="mt-1.5 text-sm text-slate-600">
           Employers ask; you arrange. Both sides see exactly the same time and place.
         </p>
       </div>
@@ -109,7 +111,7 @@ function RequestCard({
   onArrange: () => void;
 }) {
   return (
-    <Card>
+    <Card className={ADMIN_CARD}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-semibold text-brand-900">{request.candidateName}</p>
@@ -157,7 +159,7 @@ function InterviewCard({
         : null;
 
   return (
-    <Card>
+    <Card className={ADMIN_CARD}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-semibold text-brand-900">{interview.candidateName ?? 'Candidate'}</p>
