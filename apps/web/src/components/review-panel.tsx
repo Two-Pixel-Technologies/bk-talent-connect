@@ -38,7 +38,12 @@ export function ReviewPanel({
   const needsNote = decision === 'REQUEST_CHANGES' || decision === 'REJECT';
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
+    // Same hairline-plus-shadow surface every portal's primary cards use
+    // (candidate-style.ts / employer-style.ts / admin-style.ts) — inlined
+    // rather than importing admin-style.ts, since components/ sits below
+    // pages/ in this codebase's layering and this panel is reused verbatim
+    // by all three review queues.
+    <div className="rounded-xl border border-slate-300/70 bg-white p-4 shadow-[0_2px_10px_rgba(15,23,42,0.05)] sm:p-6">
       <h2 className="font-semibold text-brand-900">Your decision</h2>
 
       {stale ? (

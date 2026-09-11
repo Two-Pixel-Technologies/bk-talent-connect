@@ -16,6 +16,7 @@ import { Pagination } from '../../components/pagination.js';
 import { QueryState } from '../../components/query-state.js';
 import { useDebounced } from '../../lib/use-debounced.js';
 import { Modal } from '../../components/modal.js';
+import { ADMIN_CARD } from './admin-style.js';
 
 const FILTERS = [
   { value: 'false', label: 'Needs a decision' },
@@ -52,7 +53,7 @@ export function SkillsPage() {
       {actionError && <Alert tone="error">{actionError.message}</Alert>}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {FILTERS.map((f) => (
             <button
               key={f.value || 'all'}
@@ -61,8 +62,10 @@ export function SkillsPage() {
                 setPage(1);
                 setFilter(f.value);
               }}
-              className={`min-h-11 shrink-0 rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors ${
-                filter === f.value ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'
+              className={`min-h-11 shrink-0 cursor-pointer rounded-lg border px-3 text-sm font-semibold whitespace-nowrap transition-colors ${
+                filter === f.value
+                  ? 'border-brand-600 bg-brand-600 text-white shadow-sm shadow-brand-900/10'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
               }`}
             >
               {f.label}
@@ -147,7 +150,7 @@ function SkillRow({
   const inUse = skill.candidateCount + skill.jobCount;
 
   return (
-    <Card className="!p-3 sm:!p-4">
+    <Card className={`!p-3 sm:!p-4 ${ADMIN_CARD}`}>
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
           {editing ? (
@@ -200,11 +203,11 @@ function SkillRow({
                 Unapprove
               </Button>
             )}
-            <Button variant="ghost" className="px-3 text-xs" onClick={() => setEditing(true)}>
+            <Button variant="secondary" className="px-3 text-xs" onClick={() => setEditing(true)}>
               Rename
             </Button>
             <Button
-              variant="ghost"
+              variant="secondary"
               className="px-3 text-xs"
               onClick={onMergeFrom}
               title={inUse > 0 ? `${inUse} records will move` : undefined}

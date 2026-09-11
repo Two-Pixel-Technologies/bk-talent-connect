@@ -19,6 +19,7 @@ import {
 } from '../../features/admin/use-coordination.js';
 import { Alert, Badge, Button, Card, Field, Input } from '../../components/ui/index.js';
 import { QueryState } from '../../components/query-state.js';
+import { ADMIN_CARD } from './admin-style.js';
 
 const TABS: { kind: TaxonomyKind; label: string; blurb: string }[] = [
   {
@@ -54,8 +55,10 @@ export function TaxonomyPage() {
             key={tab.kind}
             type="button"
             onClick={() => setKind(tab.kind)}
-            className={`min-h-11 rounded-lg px-4 text-sm font-medium transition-colors ${
-              kind === tab.kind ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'
+            className={`min-h-11 cursor-pointer rounded-lg border px-4 text-sm font-semibold transition-colors ${
+              kind === tab.kind
+                ? 'border-brand-600 bg-brand-600 text-white shadow-sm shadow-brand-900/10'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
             }`}
           >
             {tab.label}
@@ -83,7 +86,7 @@ function TaxonomyList({ kind }: { kind: TaxonomyKind }) {
     <div className="space-y-4">
       {actionError && <Alert tone="error">{actionError.message}</Alert>}
 
-      <Card>
+      <Card className={ADMIN_CARD}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <div className="flex-1">
             <Field label="Add one" htmlFor="new-entry">
@@ -110,7 +113,7 @@ function TaxonomyList({ kind }: { kind: TaxonomyKind }) {
       <QueryState isPending={isPending} error={error} onRetry={() => void refetch()}>
         <div className="space-y-2">
           {data?.items.map((entry) => (
-            <Card key={entry.id} className="!p-3 sm:!p-4">
+            <Card key={entry.id} className={`!p-3 sm:!p-4 ${ADMIN_CARD}`}>
               <div className="flex flex-wrap items-center gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-slate-900">{entry.name}</p>

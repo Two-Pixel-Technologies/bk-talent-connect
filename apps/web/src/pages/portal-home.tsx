@@ -9,6 +9,7 @@
 import { Link } from 'react-router-dom';
 import { formatDate, formatRelative } from '@bktc/shared';
 import { PortalLayout, type NavItem } from '../components/layout/portal-layout.js';
+import { AdminShell } from '../components/layout/admin-shell.js';
 import { useAuth } from '../features/auth/auth-context.js';
 import { useProfile } from '../features/candidate/use-profile.js';
 import { useApplications, type TrackedApplication } from '../features/candidate/use-jobs.js';
@@ -38,27 +39,15 @@ const EMPLOYER_NAV: readonly NavItem[] = [
   { to: '/employer/privacy', label: 'Your data' },
 ];
 
-const ADMIN_NAV: readonly NavItem[] = [
-  { to: '/admin', label: 'Overview', end: true },
-  { to: '/admin/candidates', label: 'Candidates' },
-  { to: '/admin/employers', label: 'Employers' },
-  { to: '/admin/jobs', label: 'Jobs' },
-  { to: '/admin/pipeline', label: 'Pipeline' },
-  { to: '/admin/coordination', label: 'Interviews' },
-  // Housekeeping, so it sits after the daily work rather than in front of it.
-  { to: '/admin/skills', label: 'Skills' },
-  { to: '/admin/taxonomy', label: 'Taxonomy' },
-  { to: '/admin/enquiries', label: 'Enquiries' },
-  { to: '/admin/erasure', label: 'Erasure' },
-];
-
 export const CandidateLayout = () => (
   <PortalLayout title="Candidate" nav={CANDIDATE_NAV} variant="public" />
 );
 export const EmployerLayout = () => (
   <PortalLayout title="Employer" nav={EMPLOYER_NAV} variant="public" />
 );
-export const AdminLayout = () => <PortalLayout title="Admin" nav={ADMIN_NAV} variant="public" />;
+// Admin has ten nav items across three groups, which is a sidebar's job, not
+// a horizontal header's — see components/layout/admin-shell.tsx for why.
+export const AdminLayout = () => <AdminShell />;
 
 const STATUS_TONE: Record<string, 'info' | 'success' | 'warning' | 'error'> = {
   DRAFT: 'info',

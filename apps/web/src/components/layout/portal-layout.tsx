@@ -103,20 +103,9 @@ export function PortalLayout({
             </Link>
           )}
 
-          {/* min-w-0 + overflow-x-auto: a nav with more items than fit (Admin
-              has ten) scrolls within its own box instead of forcing the whole
-              header wider than the viewport. Inert for Candidate/Employer,
-              whose short navs never come close to needing it. */}
-          <nav
-            className={`ml-auto hidden min-w-0 items-center overflow-x-auto md:flex ${isPublic ? 'gap-5' : 'gap-1'} [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
-          >
+          <nav className={`ml-auto hidden items-center md:flex ${isPublic ? 'gap-5' : 'gap-1'}`}>
             {nav.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end ?? false}
-                className={({ isActive }) => `shrink-0 ${desktopLinkClass({ isActive })}`}
-              >
+              <NavLink key={item.to} to={item.to} end={item.end ?? false} className={desktopLinkClass}>
                 {item.label}
               </NavLink>
             ))}

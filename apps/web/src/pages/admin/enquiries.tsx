@@ -13,6 +13,7 @@ import { useEnquiries, useMarkEnquiryHandled } from '../../features/admin/use-co
 import { Alert, Badge, Button, Card, EmptyState } from '../../components/ui/index.js';
 import { Pagination } from '../../components/pagination.js';
 import { QueryState } from '../../components/query-state.js';
+import { ADMIN_CARD } from './admin-style.js';
 
 const TYPE_LABEL: Record<string, string> = {
   CANDIDATE: 'Looking for work',
@@ -40,7 +41,17 @@ export function EnquiriesPage() {
 
       {actionError && <Alert tone="error">{actionError.message}</Alert>}
 
-      <label className="flex min-h-11 w-fit items-center gap-2 text-sm text-slate-700">
+      {/*
+        * Same shared-reset bug as the Employer/Candidate checkboxes: styles.css
+        * applies appearance-none to every input for Safari's rounded-input fix,
+        * which also strips a checkbox's native box/tick with nothing put back —
+        * it worked, it just was not visible. appearance-auto restores it here.
+        */}
+      <label
+        className={`flex min-h-11 w-fit cursor-pointer items-center gap-2.5 rounded-lg border px-3 text-sm transition-colors ${
+          showHandled ? 'border-brand-200 bg-brand-50/70 text-slate-800' : 'border-transparent text-slate-700 hover:bg-slate-100'
+        }`}
+      >
         <input
           type="checkbox"
           checked={showHandled}
@@ -48,7 +59,7 @@ export function EnquiriesPage() {
             setPage(1);
             setShowHandled(e.target.checked);
           }}
-          className="size-4 rounded border-slate-300"
+          className="size-4 shrink-0 appearance-auto rounded border-slate-300 accent-brand-600"
         />
         Include ones already handled
       </label>
@@ -62,7 +73,7 @@ export function EnquiriesPage() {
         ) : (
           <div className="space-y-3">
             {data?.items.map((enquiry) => (
-              <Card key={enquiry.id}>
+              <Card key={enquiry.id} className={ADMIN_CARD}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-semibold text-brand-900">{enquiry.name}</p>
@@ -86,7 +97,7 @@ export function EnquiriesPage() {
                 <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
                   <span className="text-xs text-slate-400">{formatDateTime(enquiry.createdAt)}</span>
                   <Button
-                    variant={enquiry.handledAt ? 'ghost' : 'primary'}
+                    variant={enquiry.handledAt ? 'secondary' : 'primary'}
                     className="ml-auto px-3 text-xs"
                     loading={mark.isPending}
                     onClick={() => mark.mutate({ id: enquiry.id, handled: !enquiry.handledAt })}

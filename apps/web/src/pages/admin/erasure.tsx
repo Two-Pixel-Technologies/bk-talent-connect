@@ -14,6 +14,7 @@ import { api, ApiError } from '../../lib/api-client.js';
 import { Alert, Badge, Button, Card, EmptyState, Field, Textarea } from '../../components/ui/index.js';
 import { Pagination } from '../../components/pagination.js';
 import { QueryState } from '../../components/query-state.js';
+import { ADMIN_CARD } from './admin-style.js';
 
 type AdminErasureRequest = {
   id: string;
@@ -78,7 +79,7 @@ export function ErasurePage() {
 
       {actionError && <Alert tone="error">{actionError.message}</Alert>}
 
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {FILTERS.map((f) => (
           <button
             key={f.value || 'all'}
@@ -87,8 +88,10 @@ export function ErasurePage() {
               setPage(1);
               setStatus(f.value);
             }}
-            className={`min-h-11 shrink-0 rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors ${
-              status === f.value ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'
+            className={`min-h-11 shrink-0 cursor-pointer rounded-lg border px-3 text-sm font-semibold whitespace-nowrap transition-colors ${
+              status === f.value
+                ? 'border-brand-600 bg-brand-600 text-white shadow-sm shadow-brand-900/10'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
             }`}
           >
             {f.label}
@@ -143,7 +146,7 @@ function RequestCard({
   const [typed, setTyped] = useState('');
 
   return (
-    <Card>
+    <Card className={ADMIN_CARD}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-semibold break-words text-brand-900">{r.userEmail}</p>

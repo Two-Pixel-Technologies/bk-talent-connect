@@ -80,10 +80,10 @@ export function EmployerQueuePage() {
               key={e.id}
               type="button"
               onClick={() => queue.setSelectedId(e.id)}
-              className={`w-full rounded-xl border p-4 text-left transition-colors ${
+              className={`w-full cursor-pointer rounded-xl border p-4 text-left transition-all ${
                 selectedId === e.id
-                  ? 'border-brand-400 bg-brand-50'
-                  : `bg-white hover:border-brand-300 ${ADMIN_CARD}`
+                  ? 'border-brand-400 bg-brand-50 shadow-[0_2px_10px_rgba(15,23,42,0.05)]'
+                  : `bg-white hover:border-brand-300 hover:shadow-[0_6px_18px_rgba(15,23,42,0.08)] ${ADMIN_CARD}`
               }`}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -115,7 +115,7 @@ export function EmployerQueuePage() {
               error={review.error}
               noun="company"
             />
-            <Card>
+            <Card className={ADMIN_CARD}>
               <AccountControls
                 userId={selected.userId}
                 userStatus={selected.userStatus}

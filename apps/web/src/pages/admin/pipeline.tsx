@@ -138,7 +138,7 @@ export function PipelinePage() {
               setPage(1);
               setStage(f.value);
             }}
-            className={`min-h-11 shrink-0 rounded-lg border px-3 text-sm font-semibold whitespace-nowrap transition-colors ${
+            className={`min-h-11 shrink-0 cursor-pointer rounded-lg border px-3 text-sm font-semibold whitespace-nowrap transition-colors ${
               stage === f.value
                 ? 'border-brand-600 bg-brand-600 text-white shadow-sm shadow-brand-900/10'
                 : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
