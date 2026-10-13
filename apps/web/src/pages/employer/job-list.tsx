@@ -129,7 +129,17 @@ export function JobListPage() {
         </Card>
       )}
 
-      {/* Scrolls rather than wrapping into a tall block on a phone. */}
+      {/*
+        * Scrolls rather than wrapping into a tall block on a phone.
+        *
+        * The count badge used to render only when count > 0 — `counts` comes
+        * from a GROUP BY on the server, so it only has keys for statuses with
+        * at least one job right now. As jobs move between statuses, whichever
+        * tabs cross zero gain or lose their badge and change width, shifting
+        * every tab after them. The badge now always renders (showing 0 too),
+        * so each tab's width depends only on its own label — stable
+        * regardless of what the live counts happen to be.
+        */}
       <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {FILTERS.map((f) => {
           const count = f.value ? (data?.counts[f.value] ?? 0) : (data?.total ?? 0);
@@ -148,7 +158,7 @@ export function JobListPage() {
               }`}
             >
               {f.label}
-              {count > 0 && <span className="ml-1.5 opacity-70">{count}</span>}
+              <span className="ml-1.5 opacity-70">{count}</span>
             </button>
           );
         })}

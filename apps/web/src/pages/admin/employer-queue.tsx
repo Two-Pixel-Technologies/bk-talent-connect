@@ -55,7 +55,7 @@ export function EmployerQueuePage() {
       onStatusChange={queue.setStatus}
       search={search}
       onSearchChange={queue.setSearch}
-      searchPlaceholder="Search by company or email"
+      searchPlaceholder="Search by company, email or phone"
       total={data?.total}
       page={page}
       pageSize={data?.pageSize ?? 20}

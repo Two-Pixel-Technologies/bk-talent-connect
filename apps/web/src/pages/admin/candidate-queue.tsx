@@ -63,7 +63,7 @@ export function CandidateQueuePage() {
       onStatusChange={queue.setStatus}
       search={search}
       onSearchChange={queue.setSearch}
-      searchPlaceholder="Search by name or email"
+      searchPlaceholder="Search by name, email or phone"
       total={data?.total}
       page={page}
       pageSize={data?.pageSize ?? 20}

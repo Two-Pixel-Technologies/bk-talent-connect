@@ -418,6 +418,15 @@ function ApplicantCard({
                 ) {
                   return;
                 }
+                // They are notified immediately, and there is no stage back
+                // to retract it from here — only the candidate can accept,
+                // decline or withdraw from this point on.
+                if (
+                  next === 'OFFER_MADE' &&
+                  !window.confirm(`Make an offer to ${c.fullName}? They are notified right away, and you cannot retract it from here.`)
+                ) {
+                  return;
+                }
                 onStage(next);
               }}
             >

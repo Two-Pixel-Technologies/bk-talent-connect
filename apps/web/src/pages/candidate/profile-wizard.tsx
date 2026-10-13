@@ -43,6 +43,7 @@ import {
 import { diffProfile, draftFromProfile } from '../../features/candidate/profile-diff.js';
 import { SkillsInput } from '../../components/skills-input.js';
 import { QueryState } from '../../components/query-state.js';
+import { DownwardSelect } from '../../components/downward-select.js';
 import { Alert, Badge, Button, Card, Field, Input, Select, Textarea } from '../../components/ui/index.js';
 import { CANDIDATE_CARD } from './candidate-style.js';
 
@@ -574,12 +575,17 @@ function ProfessionalStep({ draft, set, taxonomy, locked }: StepProps) {
             onChange={(e) => set('yearsOfExperience', e.target.value === '' ? undefined : Number(e.target.value))}
           />
         </Field>
-        <Field label="Sector" htmlFor="sectorSlug" required hint="The industry and professional area you work in">
-          <Select
+        {/*
+          * No separate hint line here, same reasoning as Qualification above
+          * — folded into the label instead so it doesn't push this field out
+          * of line with "Years of experience" beside it.
+          */}
+        <Field label="Sector (industry and professional area)" htmlFor="sectorSlug" required>
+          <DownwardSelect
             id="sectorSlug"
             value={draft.sectorSlug ?? ''}
-            onChange={(e) => {
-              const next = e.target.value;
+            placeholder="Select a sector"
+            onChange={(next) => {
               set('sectorSlug', next);
               // The backend clears the stored custom text whenever sectorSlug
               // moves away from 'other' too (candidate.service.ts toColumns) —
@@ -587,12 +593,8 @@ function ProfessionalStep({ draft, set, taxonomy, locked }: StepProps) {
               // candidate flips back to Other a moment later.
               if (next !== 'other') set('sectorOther', '');
             }}
-          >
-            <option value="">Select a sector</option>
-            {taxonomy?.sectors.map((s) => (
-              <option key={s.slug} value={s.slug}>{s.name}</option>
-            ))}
-          </Select>
+            options={(taxonomy?.sectors ?? []).map((s) => ({ value: s.slug, label: s.name }))}
+          />
         </Field>
       </div>
 
@@ -608,22 +610,28 @@ function ProfessionalStep({ draft, set, taxonomy, locked }: StepProps) {
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="Education level" htmlFor="educationLevel" required>
-          <Select
+          <DownwardSelect
             id="educationLevel"
             value={draft.educationLevel ?? ''}
-            onChange={(e) => {
-              const next = e.target.value as Draft['educationLevel'];
-              set('educationLevel', next);
+            placeholder="Select"
+            onChange={(next) => {
+              set('educationLevel', next as Draft['educationLevel']);
               if (next !== 'OTHER') set('educationLevelOther', '');
             }}
-          >
-            <option value="">Select</option>
-            {educationLevelOptions(draft.educationLevel).map((level) => (
-              <option key={level} value={level}>{EDUCATION_LABELS[level]}</option>
-            ))}
-          </Select>
+            options={educationLevelOptions(draft.educationLevel).map((level) => ({
+              value: level,
+              label: EDUCATION_LABELS[level],
+            }))}
+          />
         </Field>
-        <Field label="Qualification" htmlFor="qualification" required hint="Degree and specialisation">
+        {/*
+          * No separate hint line here on purpose — Field renders hint between
+          * the label and the control, so a hint on this field alone (its
+          * neighbours have none) pushed just this input down and broke the
+          * row's alignment. Folded into the label instead, which keeps every
+          * input in the row starting at the same height.
+          */}
+        <Field label="Qualification (degree & specialisation)" htmlFor="qualification" required>
           <Input id="qualification" value={draft.qualification ?? ''} onChange={(e) => set('qualification', e.target.value)} />
         </Field>
         <Field label="Year of Qualification" htmlFor="qualificationYear" required>
@@ -696,15 +704,17 @@ function HistoryStep({ draft, set }: StepProps) {
             </Field>
           </div>
 
+          {/*
+            * "To (year)" used to carry its disabled-reason as a Field hint,
+            * which (unlike its two row-mates) pushed just that one input down
+            * and visibly knocked it out of line with "From (year)". Moved
+            * below the row instead, same fix as Qualification above.
+            */}
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="From (year)" htmlFor={`start-${index}`} required>
               <Input id={`start-${index}`} type="number" min={1960} value={exp.startYear} onChange={(e) => update(index, { startYear: Number(e.target.value) })} />
             </Field>
-            <Field
-              label="To (year)"
-              htmlFor={`end-${index}`}
-              hint={exp.isCurrent ? 'Not needed — marked as your current role' : undefined}
-            >
+            <Field label="To (year)" htmlFor={`end-${index}`}>
               <Input
                 id={`end-${index}`}
                 type="number"
@@ -737,6 +747,11 @@ function HistoryStep({ draft, set }: StepProps) {
               Current role
             </label>
           </div>
+          {exp.isCurrent && (
+            <p className="mt-1.5 text-xs text-slate-500">
+              To (year) isn&rsquo;t needed — marked as your current role.
+            </p>
+          )}
 
           <div className="mt-4">
             <Field

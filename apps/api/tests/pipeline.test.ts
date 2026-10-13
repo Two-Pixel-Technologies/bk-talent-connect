@@ -431,6 +431,26 @@ describe('the transition matrix', () => {
     }
   });
 
+  /*
+   * These three are declared ADMIN-only and Admin's mutation routes are gone,
+   * so nobody can currently execute them — a known, reported gap, not an
+   * invitation to widen Employer/Candidate permissions. This locks in that
+   * neither of them can perform these corrections, so a future change can't
+   * silently grant it by accident.
+   */
+  it('keeps the three admin-only regressions out of reach for employer and candidate', () => {
+    const regressions: readonly [ApplicationStage, ApplicationStage][] = [
+      ['UNDER_REVIEW', 'APPLIED'],
+      ['SHORTLISTED', 'UNDER_REVIEW'],
+      ['INTERVIEW_SCHEDULED', 'SHORTLISTED'],
+    ];
+    for (const [from, to] of regressions) {
+      expect(canTransition(from, to, 'ADMIN').allowed, `ADMIN ${from}->${to}`).toBe(true);
+      expect(canTransition(from, to, 'EMPLOYER').allowed, `EMPLOYER ${from}->${to}`).toBe(false);
+      expect(canTransition(from, to, 'CANDIDATE').allowed, `CANDIDATE ${from}->${to}`).toBe(false);
+    }
+  });
+
   it('lets an admin reverse a rejection inside 24 hours, but not after', () => {
     const now = new Date();
     const recent = new Date(now.getTime() - 60 * 60 * 1000);
@@ -442,9 +462,12 @@ describe('the transition matrix', () => {
     expect(
       canTransition('NOT_SELECTED', 'SHORTLISTED', 'ADMIN', { stageChangedAt: old, now }).allowed,
     ).toBe(false);
-    // Never the employer's to reverse.
+    // Never the employer's or the candidate's to reverse.
     expect(
       canTransition('NOT_SELECTED', 'SHORTLISTED', 'EMPLOYER', { stageChangedAt: recent, now }).allowed,
+    ).toBe(false);
+    expect(
+      canTransition('NOT_SELECTED', 'SHORTLISTED', 'CANDIDATE', { stageChangedAt: recent, now }).allowed,
     ).toBe(false);
   });
 });

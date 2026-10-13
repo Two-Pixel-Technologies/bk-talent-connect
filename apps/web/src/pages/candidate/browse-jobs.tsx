@@ -15,6 +15,7 @@ import { useTaxonomy } from '../../features/candidate/use-profile.js';
 import { Alert, Badge, Card, EmptyState, Input, Select } from '../../components/ui/index.js';
 import { Pagination } from '../../components/pagination.js';
 import { QueryState } from '../../components/query-state.js';
+import { useDebounced } from '../../lib/use-debounced.js';
 import { CANDIDATE_CARD } from './candidate-style.js';
 
 /**
@@ -63,9 +64,11 @@ export function BrowseJobsPage() {
   const { data: taxonomy } = useTaxonomy();
   const [filters, setFilters] = useState({ sector: '', function: '', city: '', search: '' });
   const [page, setPage] = useState(1);
+  const debouncedSearch = useDebounced(filters.search);
 
   const approved = user?.approvalStatus === 'APPROVED';
-  const { data, isPending, error, refetch } = useBrowseJobs(approved ? filters : {}, page);
+  const queryFilters = { ...filters, search: debouncedSearch };
+  const { data, isPending, error, refetch } = useBrowseJobs(approved ? queryFilters : {}, page);
 
   if (!approved) {
     const status = user?.approvalStatus ?? 'DRAFT';

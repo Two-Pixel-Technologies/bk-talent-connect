@@ -121,8 +121,19 @@ export function PipelinePage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/*
+        * Below lg there isn't room for every filter button plus a 16rem
+        * search box on one row — sharing the row from sm meant the button
+        * row (which doesn't wrap, by design, so it can scroll horizontally)
+        * ran straight up against the search box with no space between them,
+        * sometimes slicing a button in half right at that boundary. Stacking
+        * until lg gives the filter row the full width to breathe in; the
+        * search box still gets a clear left border once they do share a row,
+        * so the boundary between them reads as deliberate even if the
+        * scrollable row happens to end mid-button.
+        */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="-mx-1 flex min-w-0 gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {FILTERS.map((f) => (
             <button
               key={f.value || 'all'}
@@ -143,7 +154,7 @@ export function PipelinePage() {
           ))}
         </div>
 
-        <div className="sm:w-64">
+        <div className="lg:w-64 lg:shrink-0 lg:border-l lg:border-slate-200 lg:pl-4">
           <Field label="Search" htmlFor="pipeline-search">
             <Input
               id="pipeline-search"

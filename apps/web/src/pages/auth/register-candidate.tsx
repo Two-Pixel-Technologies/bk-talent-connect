@@ -71,7 +71,7 @@ export function RegisterCandidatePage() {
             type="checkbox"
             checked={consent}
             onChange={(e) => setConsent(e.target.checked)}
-            className="mt-0.5 size-4 shrink-0 rounded border-slate-300"
+            className="mt-0.5 size-4 shrink-0 appearance-auto rounded border-slate-300 accent-brand-600"
             required
           />
           <span className="text-sm text-slate-700">
