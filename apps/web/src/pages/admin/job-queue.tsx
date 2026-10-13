@@ -165,7 +165,15 @@ function JobDetail({ job: j }: { job: AdminJob }) {
       <dl className="mt-5 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
         <Row label="Sector" value={j.sectorName} />
         <Row label="Function" value={j.functionName} />
-        <Row label="Location" value={[j.cityName, j.state].filter(Boolean).join(', ')} />
+        <Row
+          label={j.additionalLocations.length > 0 ? 'Locations' : 'Location'}
+          value={[
+            [j.cityName, j.state].filter(Boolean).join(', '),
+            ...j.additionalLocations.map((l) => [l.cityName, l.state].filter(Boolean).join(', ')),
+          ]
+            .filter(Boolean)
+            .join('; ')}
+        />
         <Row label="Work type" value={j.workType} />
         <Row
           label="Experience"
@@ -227,19 +235,25 @@ function JobDetail({ job: j }: { job: AdminJob }) {
         </p>
       )}
 
-      {/* The route into the recommendation flow. Only offered once the posting
-          is live — nobody should be put forward for a role no employer can act
-          on, and the server refuses it anyway. */}
-      {j.status === 'APPROVED' && (
-        <div className="mt-5 border-t border-slate-100 pt-4">
+      <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+        {/* The route into the recommendation flow. Only offered once the posting
+            is live — nobody should be put forward for a role no employer can act
+            on, and the server refuses it anyway. */}
+        {j.status === 'APPROVED' && (
           <Link
             to={`/admin/jobs/${j.id}/recommend`}
             className="inline-flex min-h-11 items-center rounded-lg bg-brand-600 px-4 text-sm font-medium text-white hover:bg-brand-700"
           >
             Find candidates to put forward
           </Link>
-        </div>
-      )}
+        )}
+        <Link
+          to={`/admin/pipeline?jobId=${j.id}`}
+          className="inline-flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-brand-700 hover:bg-slate-50"
+        >
+          Show pipelines
+        </Link>
+      </div>
     </Card>
   );
 }

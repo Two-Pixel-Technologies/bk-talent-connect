@@ -67,8 +67,18 @@ export const updateProfileSchema = z.object({
     .max(LIMITS.candidate.yearsOfExperience.max)
     .optional(),
   sectorSlug: z.string().trim().max(80).optional(),
+  /** Free text the candidate typed when sectorSlug resolved to the taxonomy's 'other' row. */
+  sectorOther: z.string().trim().max(LIMITS.candidate.sectorOther.max).optional(),
+  /**
+   * Still accepted and still stored — the candidate-facing form no longer
+   * collects it (a single "Sector" field replaced the Sector+Function pair),
+   * but existing profiles that already have one keep it, and nothing here
+   * refuses or discards it.
+   */
   functionSlug: z.string().trim().max(80).optional(),
   educationLevel: z.enum(EDUCATION_LEVELS).optional(),
+  /** Free text the candidate typed when educationLevel is 'OTHER'. */
+  educationLevelOther: z.string().trim().max(LIMITS.candidate.educationLevelOther.max).optional(),
   qualification: z.string().trim().max(LIMITS.shortText.max).optional(),
   qualificationYear: z.number().int().min(1960).max(currentYear + 6).optional(),
 
@@ -93,7 +103,15 @@ export const updateProfileSchema = z.object({
     .optional(),
 
   experiences: z.array(experienceSchema).max(LIMITS.candidate.experienceRows.max).optional(),
-});
+})
+  .refine((v) => v.sectorSlug !== 'other' || (v.sectorOther ?? '').trim().length > 0, {
+    message: 'Tell us your sector.',
+    path: ['sectorOther'],
+  })
+  .refine((v) => v.educationLevel !== 'OTHER' || (v.educationLevelOther ?? '').trim().length > 0, {
+    message: 'Tell us your qualification level.',
+    path: ['educationLevelOther'],
+  });
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
 /** The complete-profile contract, checked when the candidate hits Submit. */
@@ -106,8 +124,13 @@ export const submitProfileSchema = z
     currentJobTitle: z.string().trim().min(2, 'Enter your current job title.'),
     yearsOfExperience: z.number().min(0, 'Enter your years of experience.'),
     sectorSlug: z.string().min(1, 'Choose your sector.'),
-    functionSlug: z.string().min(1, 'Choose your function.'),
+    sectorOther: z.string().trim().max(LIMITS.candidate.sectorOther.max).optional(),
+    // No longer collected by the candidate-facing form (one "Sector" field
+    // replaced Sector+Function), so no longer required to submit. Still
+    // accepted if present, for a profile that saved one before this change.
+    functionSlug: z.string().optional(),
     educationLevel: z.enum(EDUCATION_LEVELS, { required_error: 'Choose your education level.' }),
+    educationLevelOther: z.string().trim().max(LIMITS.candidate.educationLevelOther.max).optional(),
     qualification: z.string().trim().min(2, 'Enter your qualification.'),
     qualificationYear: z.number().int(),
     careerSummary: z
@@ -131,6 +154,14 @@ export const submitProfileSchema = z
   .refine((v) => v.expectedSalaryMaxLpa >= v.expectedSalaryMinLpa, {
     message: 'Maximum expected salary cannot be below the minimum.',
     path: ['expectedSalaryMaxLpa'],
+  })
+  .refine((v) => v.sectorSlug !== 'other' || (v.sectorOther ?? '').trim().length > 0, {
+    message: 'Tell us your sector.',
+    path: ['sectorOther'],
+  })
+  .refine((v) => v.educationLevel !== 'OTHER' || (v.educationLevelOther ?? '').trim().length > 0, {
+    message: 'Tell us your qualification level.',
+    path: ['educationLevelOther'],
   });
 
 /**
@@ -146,8 +177,10 @@ export const MATERIAL_FIELDS = [
   'experiences',
   'yearsOfExperience',
   'sectorSlug',
+  'sectorOther',
   'functionSlug',
   'educationLevel',
+  'educationLevelOther',
   'qualification',
   'qualificationYear',
   'careerSummary',
@@ -190,8 +223,11 @@ export const COMPLETION_WEIGHTS: Readonly<Record<string, number>> = {
   state: 3,
   currentJobTitle: 6,
   yearsOfExperience: 6,
-  sectorSlug: 6,
-  functionSlug: 6,
+  // Absorbs the 6 points Function used to carry: the candidate-facing form
+  // now collects one Sector field instead of a Sector+Function pair, and a
+  // weight that nothing can ever fill again would permanently cap completion
+  // at 94% for every new candidate.
+  sectorSlug: 12,
   educationLevel: 5,
   qualification: 4,
   qualificationYear: 3,
@@ -219,8 +255,9 @@ export const PROFILE_STEPS = [
       'currentEmployer',
       'yearsOfExperience',
       'sectorSlug',
-      'functionSlug',
+      'sectorOther',
       'educationLevel',
+      'educationLevelOther',
       'qualification',
       'qualificationYear',
       'skills',

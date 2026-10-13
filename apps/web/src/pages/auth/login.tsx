@@ -61,7 +61,7 @@ export function LoginPage() {
           />
         </Field>
 
-        <Field label="Password" htmlFor="password" required>
+        <Field label="Password" htmlFor="password" required error={error?.fieldError('password')}>
           <Input
             id="password"
             type="password"
@@ -69,6 +69,7 @@ export function LoginPage() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            invalid={Boolean(error?.fieldError('password'))}
           />
         </Field>
 

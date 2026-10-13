@@ -107,6 +107,20 @@ export const updateJobSchema = z.object({
   functionSlug: z.string().trim().max(80).optional(),
   citySlug: z.string().trim().max(80).optional(),
   state: z.string().trim().max(LIMITS.shortText.max).optional(),
+  /**
+   * Hiring locations beyond the primary citySlug/state above. Optional and
+   * capped well under a realistic "many branches" count — this is extra
+   * locations for one posting, not a second taxonomy.
+   */
+  additionalLocations: z
+    .array(
+      z.object({
+        citySlug: z.string().trim().min(1).max(80),
+        state: z.string().trim().min(1).max(LIMITS.shortText.max),
+      }),
+    )
+    .max(LIMITS.job.additionalLocations.max)
+    .optional(),
   workType: z.enum(WORK_TYPES).optional(),
 
   requiredSkills: z
@@ -202,6 +216,7 @@ export const MATERIAL_JOB_FIELDS = [
   'functionSlug',
   'citySlug',
   'state',
+  'additionalLocations',
   'workType',
   'educationRequirement',
   'salaryBandMinLpa',

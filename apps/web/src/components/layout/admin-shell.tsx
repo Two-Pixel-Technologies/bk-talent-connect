@@ -28,6 +28,17 @@ import { NotificationBell } from '../notification-bell.js';
 type AdminNavItem = { readonly to: string; readonly label: string; readonly end?: boolean };
 type AdminNavGroup = { readonly label: string; readonly items: readonly AdminNavItem[] };
 
+/**
+ * Interviews and Skills were removed deliberately, not just relabelled:
+ *
+ * - Interviews: interview coordination is a Candidate/Employer responsibility
+ *   now, not Admin's — see admin-coordination.routes.ts's file comment.
+ *   Read-only interview status is folded into the Pipeline page instead.
+ * - Skills: its page and routes still exist (the free-text-skill approve/
+ *   merge workflow has no other UI), just unlinked from this nav per the
+ *   requested scope — reachable directly at /admin/skills. See the final
+ *   report for why removing the page itself would orphan that workflow.
+ */
 const NAV_GROUPS: readonly AdminNavGroup[] = [
   {
     label: 'Operations',
@@ -37,15 +48,11 @@ const NAV_GROUPS: readonly AdminNavGroup[] = [
       { to: '/admin/employers', label: 'Employers' },
       { to: '/admin/jobs', label: 'Jobs' },
       { to: '/admin/pipeline', label: 'Pipeline' },
-      { to: '/admin/coordination', label: 'Interviews' },
     ],
   },
   {
     label: 'Configuration',
-    items: [
-      { to: '/admin/skills', label: 'Skills' },
-      { to: '/admin/taxonomy', label: 'Taxonomy' },
-    ],
+    items: [{ to: '/admin/taxonomy', label: 'Sector Options' }],
   },
   {
     label: 'Support / Governance',

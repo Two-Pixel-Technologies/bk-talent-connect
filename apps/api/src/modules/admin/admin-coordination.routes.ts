@@ -1,10 +1,21 @@
 /**
- * Admin recommendations, interview coordination and private notes.
+ * Admin recommendations, read-only interview visibility and private notes.
+ *
+ * Interview coordination — scheduling, rescheduling, cancelling, completing —
+ * is deliberately NOT exposed here. Product decision: Candidate and Employer
+ * own hiring coordination; Admin only observes. That leaves a real gap today
+ * (SHORTLISTED -> INTERVIEW_SCHEDULED -> INTERVIEWED and the offer-acceptance
+ * steps were admin-only transitions — see admin-pipeline.routes.ts's header
+ * comment — and neither Employer nor Candidate has an equivalent booking
+ * action), which is reported rather than patched over with admin authority.
+ * `scheduleInterview`/`cancelInterview`/`completeInterview` in
+ * recommendation.service.ts are kept (so interview DATA and the domain logic
+ * around it are not destroyed) but are no longer reachable from any Admin route.
  */
 
 import { Router } from 'express';
 import { z } from 'zod';
-import { INTERVIEW_MODES, LIMITS, NOTE_ENTITY_TYPES } from '@bktc/shared';
+import { LIMITS, NOTE_ENTITY_TYPES } from '@bktc/shared';
 import * as service from './recommendation.service.js';
 import * as applicationRepo from '../../repositories/application.repo.js';
 import * as candidateRepo from '../../repositories/candidate.repo.js';
@@ -77,45 +88,13 @@ adminCoordinationRouter.post('/jobs/:id/recommend', (req, res) => {
   sendCreated(res, result);
 });
 
-// --- Interviews -----------------------------------------------------------
-
-const scheduleSchema = z.object({
-  scheduledAt: z.string().min(1, 'Choose a date and time.'),
-  durationMinutes: z.number().int().min(10).max(480).default(45),
-  mode: z.enum(INTERVIEW_MODES),
-  locationOrLink: z.string().trim().min(1, 'Add the address or the meeting link.').max(500),
-  instructions: z.string().trim().max(LIMITS.note.max).optional(),
-});
-
-adminCoordinationRouter.post('/applications/:id/interview', (req, res) => {
-  const auth = currentUser(req);
-  const input = scheduleSchema.parse(req.body);
-
-  const result = service.scheduleInterview({
-    applicationId: req.params.id ?? '',
-    ...input,
-    actorId: auth.id,
-  });
-
-  const interview = interviewRepo.findById(result.interviewId)!;
-  sendCreated(res, { ...toAdminInterviewView(interview), rescheduled: result.rescheduled });
-});
+// --- Interviews (read-only) ------------------------------------------------
+//
+// No POST/schedule, /cancel or /complete here — see the file-level comment.
 
 adminCoordinationRouter.get('/applications/:id/interviews', (req, res) => {
   const rows = interviewRepo.listForApplication(req.params.id ?? '');
   sendSerialized(res, { items: rows.map(toAdminInterviewView) });
-});
-
-adminCoordinationRouter.post('/interviews/:id/cancel', (req, res) => {
-  const auth = currentUser(req);
-  service.cancelInterview(req.params.id ?? '', auth.id);
-  sendNoContent(res);
-});
-
-adminCoordinationRouter.post('/interviews/:id/complete', (req, res) => {
-  const auth = currentUser(req);
-  service.completeInterview(req.params.id ?? '', auth.id);
-  sendNoContent(res);
 });
 
 /** Everything BK needs to chase: upcoming interviews and unanswered requests. */

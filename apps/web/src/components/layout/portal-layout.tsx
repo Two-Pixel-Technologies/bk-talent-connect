@@ -103,7 +103,15 @@ export function PortalLayout({
             </Link>
           )}
 
-          <nav className={`ml-auto hidden items-center md:flex ${isPublic ? 'gap-5' : 'gap-1'}`}>
+          {/*
+            * The horizontal nav switches on at `lg` (1024px), not `md` (768px).
+            * At 768px, five nav items (the candidate portal's count) plus the
+            * email/bell/sign-out cluster left no room for the logo — "BK Talent
+            * Connect" rendered as "BK Tal" before it hit `truncate`. The
+            * hamburger drawer already renders cleanly at every width below that,
+            * so widening its range is the fix, not squeezing the logo further.
+            */}
+          <nav className={`ml-auto hidden items-center lg:flex ${isPublic ? 'gap-5' : 'gap-1'}`}>
             {nav.map((item) => (
               <NavLink key={item.to} to={item.to} end={item.end ?? false} className={desktopLinkClass}>
                 {item.label}
@@ -144,7 +152,7 @@ export function PortalLayout({
               aria-expanded={menuOpen}
               aria-controls="portal-mobile-nav"
               aria-label="Toggle navigation"
-              className={`flex size-11 items-center justify-center rounded-lg md:hidden ${
+              className={`flex size-11 items-center justify-center rounded-lg lg:hidden ${
                 isPublic ? 'text-pub-navy hover:bg-pub-bg' : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
@@ -158,7 +166,7 @@ export function PortalLayout({
         {menuOpen && (
           <nav
             id="portal-mobile-nav"
-            className={`border-t px-4 py-2 pb-safe md:hidden ${isPublic ? 'border-pub-border' : 'border-slate-200'}`}
+            className={`border-t px-4 py-2 pb-safe lg:hidden ${isPublic ? 'border-pub-border' : 'border-slate-200'}`}
           >
             {nav.map((item) => (
               <NavLink

@@ -39,6 +39,9 @@ export const NOTIFICATION_EVENTS = [
   'CANDIDATE_RECOMMENDED',
   'INTERVIEW_CONFIRMED',
   'OFFER_MADE',
+  'OFFER_ACCEPTED',
+  'OFFER_DECLINED',
+  'CANDIDATE_JOINED',
   'CANDIDATE_NOT_SELECTED',
   'JOB_SUBMITTED',
   'JOB_APPROVED',
@@ -105,6 +108,26 @@ export const NOTIFICATION_MATRIX: readonly NotificationSpec[] = [
     event: 'CANDIDATE_NOT_SELECTED',
     recipients: ['CANDIDATE', 'ADMIN'],
     source: 'p8 "Candidate not selected"',
+  },
+
+  // --- Beyond the p8 matrix: the candidate/employer-owned offer decision and
+  // joining confirmation, added alongside the admin-coordination removal.
+  // Same shape as the rows above — the acting party is excluded, the other
+  // party and admin (read-only visibility) are told.
+  {
+    event: 'OFFER_ACCEPTED',
+    recipients: ['EMPLOYER', 'ADMIN'],
+    source: 'Added when the offer decision moved from admin to the candidate — the employer needs to know their offer was accepted.',
+  },
+  {
+    event: 'OFFER_DECLINED',
+    recipients: ['EMPLOYER', 'ADMIN'],
+    source: 'Added when the offer decision moved from admin to the candidate — the employer needs to know their offer was declined.',
+  },
+  {
+    event: 'CANDIDATE_JOINED',
+    recipients: ['CANDIDATE', 'ADMIN'],
+    source: 'Added when confirming JOINED moved from admin to the employer — the candidate is told their joining was recorded.',
   },
   {
     event: 'JOB_SUBMITTED',

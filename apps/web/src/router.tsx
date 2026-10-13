@@ -66,7 +66,6 @@ const CandidateQueuePage = lazy(() => import('./pages/admin/candidate-queue.js')
 const EmployerQueuePage = lazy(() => import('./pages/admin/employer-queue.js').then((m) => ({ default: m.EmployerQueuePage })));
 const JobQueuePage = lazy(() => import('./pages/admin/job-queue.js').then((m) => ({ default: m.JobQueuePage })));
 const PipelinePage = lazy(() => import('./pages/admin/pipeline.js').then((m) => ({ default: m.PipelinePage })));
-const CoordinationPage = lazy(() => import('./pages/admin/coordination.js').then((m) => ({ default: m.CoordinationPage })));
 const RecommendPage = lazy(() => import('./pages/admin/recommend.js').then((m) => ({ default: m.RecommendPage })));
 const SkillsPage = lazy(() => import('./pages/admin/skills.js').then((m) => ({ default: m.SkillsPage })));
 const TaxonomyPage = lazy(() => import('./pages/admin/taxonomy.js').then((m) => ({ default: m.TaxonomyPage })));
@@ -267,11 +266,6 @@ export const router = createBrowserRouter([
           { path: 'pipeline', element: (
               <Lazy>
                 <PipelinePage />
-              </Lazy>
-            ) },
-          { path: 'coordination', element: (
-              <Lazy>
-                <CoordinationPage />
               </Lazy>
             ) },
           { path: 'skills', element: (

@@ -31,6 +31,7 @@ export type EmployerJob = {
   functionName: string | null;
   citySlug: string | null;
   cityName: string | null;
+  additionalLocations: { citySlug: string | null; cityName: string | null; state: string }[];
   state: string | null;
   workType: string | null;
   minExperience: number | null;
@@ -256,6 +257,50 @@ export function useConfirmEmployerInterview() {
       api.post<{ interview: EmployerInterview }>(
         `/employer/applications/${applicationId}/interview/confirm`,
       ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employer'] }),
+  });
+}
+
+/**
+ * Booking the interview directly — previously admin-only, now the
+ * employer's own action (see stages.ts). The stage moves with the booking,
+ * so the whole 'employer' tree is invalidated, same as every other stage
+ * change here.
+ */
+export function useScheduleEmployerInterview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      applicationId: string;
+      scheduledAt: string;
+      durationMinutes: number;
+      mode: 'PHONE' | 'VIDEO' | 'ONSITE';
+      locationOrLink: string;
+      instructions?: string;
+    }) => {
+      const { applicationId, ...body } = input;
+      return api.post<{ interview: EmployerInterview; rescheduled: boolean }>(
+        `/employer/applications/${applicationId}/interview`,
+        body,
+      );
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employer'] }),
+  });
+}
+
+export function useCancelEmployerInterview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (interviewId: string) => api.post<void>(`/employer/interviews/${interviewId}/cancel`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employer'] }),
+  });
+}
+
+/** Marks the interview held and advances the application to INTERVIEWED. */
+export function useCompleteEmployerInterview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (interviewId: string) => api.post<void>(`/employer/interviews/${interviewId}/complete`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employer'] }),
   });
 }

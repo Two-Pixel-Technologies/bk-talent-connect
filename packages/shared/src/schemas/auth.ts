@@ -5,7 +5,11 @@ export const emailSchema = z
   .string()
   .trim()
   .toLowerCase()
-  .min(3)
+  // A distinct message for "nothing typed" vs "typed something unusable" —
+  // without this, an empty field surfaced zod's own default wording ("String
+  // must contain at least 3 character(s)"), which is correct but not
+  // something a candidate or employer filling in a form should ever see.
+  .min(1, 'Enter your email address.')
   .max(LIMITS.email.max)
   .email('Enter a valid email address.');
 

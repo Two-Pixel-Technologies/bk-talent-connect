@@ -165,6 +165,11 @@ export function loadJobRelations(job: Row<JobRow>): JobRelations {
     functionName: taxonomyRepo.nameById('functional_area', job.functional_area_id),
     citySlug: taxonomyRepo.slugById('city', job.city_id),
     cityName: taxonomyRepo.nameById('city', job.city_id),
+    additionalLocations: jobRepo.listAdditionalLocations(job.id).map((loc) => ({
+      citySlug: taxonomyRepo.slugById('city', loc.city_id),
+      cityName: taxonomyRepo.nameById('city', loc.city_id),
+      state: loc.state,
+    })),
     employerName: employer?.company_name ?? '',
     employerProfileId: job.employer_profile_id,
   };
@@ -271,6 +276,32 @@ export function updateJob(userId: string, jobId: string, input: UpdateJobInput):
         job.id,
         'GOOD_TO_HAVE',
         input.goodToHaveSkills.map((name) => taxonomyRepo.resolveSkillId(name)),
+      );
+    }
+
+    if (input.additionalLocations !== undefined) {
+      // The primary location (unchanged, or the new value in this same
+      // request) cannot also appear in the extra list — that would just be
+      // the same place listed twice under a different name in the UI.
+      const primaryCitySlug = input.citySlug ?? taxonomyRepo.slugById('city', job.city_id);
+      const primaryState = input.state ?? job.state ?? '';
+      const seen = new Set<string>();
+      if (primaryCitySlug) seen.add(`${primaryCitySlug}|${primaryState}`);
+
+      for (const loc of input.additionalLocations) {
+        const key = `${loc.citySlug}|${loc.state}`;
+        if (seen.has(key)) {
+          throw badRequest('Each hiring location can only be added once.');
+        }
+        seen.add(key);
+      }
+
+      jobRepo.replaceAdditionalLocations(
+        job.id,
+        input.additionalLocations.map((loc) => ({
+          cityId: taxonomyRepo.idBySlug('city', loc.citySlug) ?? null,
+          state: loc.state,
+        })),
       );
     }
 

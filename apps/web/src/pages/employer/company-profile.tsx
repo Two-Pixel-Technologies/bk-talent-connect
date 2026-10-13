@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { LIMITS, type UpdateEmployerProfileInput } from '@bktc/shared';
 import { ApiError } from '../../lib/api-client.js';
 import { diffDraft } from '../../lib/diff-draft.js';
@@ -38,6 +39,7 @@ function savedValuesOf(profile: EmployerProfile): Draft {
 }
 
 export function CompanyProfilePage() {
+  const navigate = useNavigate();
   const { data: profile, isPending, error: loadError, refetch } = useEmployerProfile();
   const { data: taxonomy } = useTaxonomy();
   const update = useUpdateEmployerProfile();
@@ -139,7 +141,7 @@ export function CompanyProfilePage() {
             team. Candidates read the introduction once they are shortlisted.
           </p>
           <div className="mt-3">
-            <Button onClick={() => submit.mutate()} loading={submit.isPending}>
+            <Button onClick={() => submit.mutate(undefined, { onSuccess: () => navigate('/employer') })} loading={submit.isPending}>
               Send for verification
             </Button>
           </div>

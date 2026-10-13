@@ -6,6 +6,7 @@
  * replaces the list.
  */
 
+import { Link } from 'react-router-dom';
 import { formatDate, formatSalary, NOTICE_PERIOD_LABELS, EDUCATION_LABELS } from '@bktc/shared';
 import {
   useCandidateQueue,
@@ -167,11 +168,27 @@ function CandidateDetail({ candidate: c }: { candidate: AdminCandidate }) {
         <Row label="Mobile" value={c.mobile} />
         <Row label="Location" value={[c.cityName, c.state].filter(Boolean).join(', ')} />
         <Row label="Experience" value={c.yearsOfExperience != null ? `${c.yearsOfExperience} years` : null} />
-        <Row label="Sector" value={c.sectorName} />
+        {/*
+          * sectorOther/educationLevelOther only ever carry a value when the
+          * candidate picked "Other" — showing just the taxonomy label in
+          * that case ("Sector: Other") tells a reviewer nothing about what
+          * the candidate actually does. The candidate-side change that added
+          * these fields (single Sector field, Other + custom text) needed
+          * this one line here too, or the data they typed would be invisible
+          * to the person approving their profile.
+          */}
+        <Row label="Sector" value={c.sectorOther ? `Other - ${c.sectorOther}` : c.sectorName} />
         <Row label="Function" value={c.functionName} />
         <Row
           label="Education"
-          value={[c.educationLevel ? EDUCATION_LABELS[c.educationLevel as 'BTECH'] : null, c.qualification]
+          value={[
+            c.educationLevelOther
+              ? `Other - ${c.educationLevelOther}`
+              : c.educationLevel
+                ? EDUCATION_LABELS[c.educationLevel as 'BTECH']
+                : null,
+            c.qualification,
+          ]
             .filter(Boolean)
             .join(' · ')}
         />
@@ -264,6 +281,15 @@ function CandidateDetail({ candidate: c }: { candidate: AdminCandidate }) {
           <span className="font-medium">Last note:</span> {c.reviewNote}
         </p>
       )}
+
+      <div className="mt-5 border-t border-slate-100 pt-4">
+        <Link
+          to={`/admin/pipeline?candidateId=${c.id}`}
+          className="inline-flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-brand-700 hover:bg-slate-50"
+        >
+          Show pipelines
+        </Link>
+      </div>
     </Card>
   );
 }

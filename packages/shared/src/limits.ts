@@ -13,7 +13,7 @@ export const LIMITS = {
   jsonBodyBytes: 100 * 1024,
 
   email: { max: 254 },
-  password: { min: 10, max: 128 },
+  password: { min: 8, max: 128 },
   shortText: { max: 200 },
   mobile: { min: 10, max: 15 },
   url: { max: 500 },
@@ -21,10 +21,13 @@ export const LIMITS = {
   candidate: {
     fullName: { min: 2, max: 120 },
     careerSummary: { min: 150, max: 2000 },
-    skills: { min: 3, max: 20 },
+    skills: { min: 3, max: 10 },
     experienceRows: { max: 15 },
-    keyAchievement: { max: 300 },
+    /** "Summary of Work Done" — a paragraph, not the one-line achievement this used to be. */
+    keyAchievement: { max: 1200 },
     yearsOfExperience: { min: 0, max: 60 },
+    sectorOther: { max: 100 },
+    educationLevelOther: { max: 100 },
   },
 
   employer: {
@@ -43,6 +46,8 @@ export const LIMITS = {
     goodToHaveSkills: { max: 15 },
     numberOfPositions: { min: 1, max: 999 },
     experienceYears: { min: 0, max: 60 },
+    /** Beyond the one required primary location — extra branches hiring for the same role. */
+    additionalLocations: { max: 9 },
   },
 
   /** Salary in whole rupees per annum. 1 crore ceiling is a sanity bound. */

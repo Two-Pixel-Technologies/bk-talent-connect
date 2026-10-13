@@ -11,10 +11,41 @@
  * Plan reference: MEDIUM-9.
  */
 
-import { LIKE_ESCAPE_CLAUSE as LIKE, likeContains } from './like.js';
+import {
+  LIKE_ESCAPE_CLAUSE as LIKE,
+  likeContains,
+  digitsOnlyLikeContains,
+  digitsOnlyColumn,
+} from './like.js';
 import { getDb } from '../db/client.js';
 import type { CandidateProfileRow, EmployerProfileRow, JobRow, Row } from '../db/rows.js';
-import { nowIso, SORT_DIRECTIONS, type SortDirection } from '@bktc/shared';
+import {
+  nowIso,
+  SORT_DIRECTIONS,
+  REVIEW_STATUS_PRIORITY,
+  JOB_STATUS_PRIORITY,
+  UNKNOWN_STATUS_PRIORITY,
+  type SortDirection,
+} from '@bktc/shared';
+
+/**
+ * Builds a deterministic `CASE <column> WHEN 'X' THEN 1 ... ELSE 99 END`
+ * fragment from a priority map, so the queue's ORDER BY always ranks
+ * "needs a decision" above "already resolved" above "rejected" — regardless
+ * of which column a caller also asked to sort by. Status values only ever
+ * come from the fixed enum maps below, never from request input, so this is
+ * safe to inline directly into the SQL string.
+ */
+function statusPriorityCase(column: string, priority: Record<string, number>): string {
+  const cases = Object.entries(priority)
+    .map(([status, rank]) => `WHEN '${status}' THEN ${rank}`)
+    .join(' ');
+  return `CASE ${column} ${cases} ELSE ${UNKNOWN_STATUS_PRIORITY} END`;
+}
+
+const CANDIDATE_STATUS_PRIORITY_SQL = statusPriorityCase('cp.profile_status', REVIEW_STATUS_PRIORITY);
+const EMPLOYER_STATUS_PRIORITY_SQL = statusPriorityCase('ep.account_status', REVIEW_STATUS_PRIORITY);
+const JOB_STATUS_PRIORITY_SQL = statusPriorityCase('j.status', JOB_STATUS_PRIORITY);
 
 // ---------------------------------------------------------------------------
 // Sort allowlists
@@ -93,9 +124,18 @@ export function listCandidates(options: QueueOptions): {
     params.push(options.status);
   }
   if (options.search) {
-    where.push(`(cp.full_name LIKE ? ${LIKE} OR u.email LIKE ? ${LIKE})`);
+    const digits = digitsOnlyLikeContains(options.search);
+    const hasDigits = digits !== '%%';
     const term = likeContains(options.search);
-    params.push(term, term);
+    if (hasDigits) {
+      where.push(
+        `(cp.full_name LIKE ? ${LIKE} OR u.email LIKE ? ${LIKE} OR ${digitsOnlyColumn('cp.mobile')} LIKE ?)`,
+      );
+      params.push(term, term, digits);
+    } else {
+      where.push(`(cp.full_name LIKE ? ${LIKE} OR u.email LIKE ? ${LIKE})`);
+      params.push(term, term);
+    }
   }
   const whereSql = where.join(' AND ');
   const column = CANDIDATE_SORTS[(options.sort as CandidateSortKey) ?? 'submitted'];
@@ -114,7 +154,7 @@ export function listCandidates(options: QueueOptions): {
        FROM candidate_profile cp
        JOIN user u ON u.id = cp.user_id
        WHERE ${whereSql}
-       ORDER BY ${column} ${direction(options.dir)}, cp.id DESC
+       ORDER BY ${CANDIDATE_STATUS_PRIORITY_SQL} ASC, ${column} ${direction(options.dir)}, cp.id DESC
        LIMIT ? OFFSET ?`,
     )
     .all(...params, options.limit, options.offset) as (CandidateProfileRow & {
@@ -204,9 +244,18 @@ export function listEmployers(options: QueueOptions): { rows: EmployerQueueRow[]
     params.push(options.status);
   }
   if (options.search) {
-    where.push(`(ep.company_name LIKE ? ${LIKE} OR u.email LIKE ? ${LIKE})`);
+    const digits = digitsOnlyLikeContains(options.search);
+    const hasDigits = digits !== '%%';
     const term = likeContains(options.search);
-    params.push(term, term);
+    if (hasDigits) {
+      where.push(
+        `(ep.company_name LIKE ? ${LIKE} OR u.email LIKE ? ${LIKE} OR ${digitsOnlyColumn('ep.hr_contact_phone')} LIKE ?)`,
+      );
+      params.push(term, term, digits);
+    } else {
+      where.push(`(ep.company_name LIKE ? ${LIKE} OR u.email LIKE ? ${LIKE})`);
+      params.push(term, term);
+    }
   }
   const whereSql = where.join(' AND ');
   const column = EMPLOYER_SORTS[(options.sort as EmployerSortKey) ?? 'created'];
@@ -226,7 +275,7 @@ export function listEmployers(options: QueueOptions): { rows: EmployerQueueRow[]
        FROM employer_profile ep
        JOIN user u ON u.id = ep.user_id
        WHERE ${whereSql}
-       ORDER BY ${column} ${direction(options.dir)}, ep.id DESC
+       ORDER BY ${EMPLOYER_STATUS_PRIORITY_SQL} ASC, ${column} ${direction(options.dir)}, ep.id DESC
        LIMIT ? OFFSET ?`,
     )
     .all(...params, options.limit, options.offset) as (EmployerProfileRow & {
@@ -299,7 +348,7 @@ export function listJobs(options: QueueOptions): { rows: Row<JobRow>[]; total: n
       `SELECT j.* FROM job j
        JOIN employer_profile ep ON ep.id = j.employer_profile_id
        WHERE ${whereSql}
-       ORDER BY ${column} ${direction(options.dir)}, j.id DESC
+       ORDER BY ${JOB_STATUS_PRIORITY_SQL} ASC, ${column} ${direction(options.dir)}, j.id DESC
        LIMIT ? OFFSET ?`,
     )
     .all(...params, options.limit, options.offset) as Row<JobRow>[];

@@ -170,6 +170,35 @@ candidateJobsRouter.post('/applications/:id/withdraw', (req, res) => {
 });
 
 /**
+ * The candidate's own decision on an offer — previously admin-only, now
+ * theirs, since accepting or declining a job offer is unambiguously the
+ * candidate's call in any real hiring process (see stages.ts).
+ */
+candidateJobsRouter.post('/applications/:id/accept-offer', (req, res) => {
+  const auth = currentUser(req);
+  const application = service.getOwnApplication(auth.id, req.params.id ?? '');
+  service.changeStage({
+    applicationId: application.id,
+    toStage: 'OFFER_ACCEPTED',
+    role: 'CANDIDATE',
+    actorId: auth.id,
+  });
+  sendSerialized(res, { stage: 'OFFER_ACCEPTED' });
+});
+
+candidateJobsRouter.post('/applications/:id/decline-offer', (req, res) => {
+  const auth = currentUser(req);
+  const application = service.getOwnApplication(auth.id, req.params.id ?? '');
+  service.changeStage({
+    applicationId: application.id,
+    toStage: 'OFFER_DECLINED',
+    role: 'CANDIDATE',
+    actorId: auth.id,
+  });
+  sendSerialized(res, { stage: 'OFFER_DECLINED' });
+});
+
+/**
  * The interview for one of my applications, plus my confirmation.
  *
  * Both parties see identical details — a mismatch here means somebody turns up

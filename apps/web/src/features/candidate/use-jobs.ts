@@ -10,6 +10,7 @@ export type BrowseJob = {
   functionName: string | null;
   cityName: string | null;
   state: string | null;
+  additionalLocations: { citySlug: string | null; cityName: string | null; state: string }[];
   workType: string | null;
   minExperience: number | null;
   maxExperience: number | null;
@@ -150,6 +151,29 @@ export function useConfirmInterview() {
       api.post<{ interview: PartyInterview }>(
         `/candidate/applications/${applicationId}/interview/confirm`,
       ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['candidate'] }),
+  });
+}
+
+/**
+ * The candidate's own decision on an offer — previously admin-only, now
+ * theirs (see stages.ts). Invalidates the whole 'candidate' tree since the
+ * stage change also moves it off the tracker's "you have an offer" state.
+ */
+export function useAcceptOffer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (applicationId: string) =>
+      api.post<{ stage: string }>(`/candidate/applications/${applicationId}/accept-offer`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['candidate'] }),
+  });
+}
+
+export function useDeclineOffer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (applicationId: string) =>
+      api.post<{ stage: string }>(`/candidate/applications/${applicationId}/decline-offer`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['candidate'] }),
   });
 }

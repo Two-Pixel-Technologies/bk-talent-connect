@@ -292,6 +292,66 @@ export function stageChanged(input: {
         });
         break;
 
+      // The candidate's own decision on an offer — the employer who made it
+      // needs to know which way it went.
+      case 'OFFER_ACCEPTED':
+        notify({
+          event: 'OFFER_ACCEPTED',
+          parties: { EMPLOYER: p.employerUserId },
+          title: `${p.candidateName} accepted the offer`,
+          body: `${p.jobTitle}.`,
+          perRole: {
+            ADMIN: {
+              title: `${p.candidateName} accepted an offer`,
+              body: `${p.jobTitle} at ${p.companyName}.`,
+            },
+          },
+          entityType: 'APPLICATION',
+          entityId: input.applicationId,
+          excludeUserId: input.actorId,
+        });
+        break;
+
+      case 'OFFER_DECLINED':
+        notify({
+          event: 'OFFER_DECLINED',
+          parties: { EMPLOYER: p.employerUserId },
+          title: `${p.candidateName} declined the offer`,
+          body: `${p.jobTitle}.`,
+          perRole: {
+            ADMIN: {
+              title: `${p.candidateName} declined an offer`,
+              body: `${p.jobTitle} at ${p.companyName}.`,
+            },
+          },
+          entityType: 'APPLICATION',
+          entityId: input.applicationId,
+          excludeUserId: input.actorId,
+        });
+        break;
+
+      // The employer confirming joining — the candidate is told it was
+      // recorded.
+      case 'JOINED':
+        notify({
+          event: 'CANDIDATE_JOINED',
+          parties: { CANDIDATE: p.candidateUserId },
+          title: 'Your joining has been recorded',
+          // Candidate job views are anonymous by design — never name the
+          // employer in a candidate-facing notification body.
+          body: `${p.jobTitle}. Congratulations, and do get in touch if we can help again.`,
+          perRole: {
+            ADMIN: {
+              title: `${p.candidateName} joined`,
+              body: `${p.jobTitle} at ${p.companyName}.`,
+            },
+          },
+          entityType: 'APPLICATION',
+          entityId: input.applicationId,
+          excludeUserId: input.actorId,
+        });
+        break;
+
       default:
         break;
     }

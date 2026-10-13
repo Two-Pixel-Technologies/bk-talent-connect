@@ -11,6 +11,30 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import { createTestContext, CSRF_HEADER, sessionCookie, type TestContext } from './helpers/test-app.js';
+// `import type` only — erased at compile time, so this has no runtime import
+// side effect. A real (value) import of any of these three would transitively
+// reach config/env.ts, which parses process.env exactly once, on its first
+// import; done statically it would be hoisted ahead of beforeAll and lock in
+// the default (real, non-test) DATABASE_PATH before createTestContext ever
+// gets to override it. The actual values are loaded dynamically inside
+// beforeAll instead — see that helper's own comment for why it does the same.
+import type * as RecommendationService from '../src/modules/admin/recommendation.service.js';
+import type * as ApplicationService from '../src/modules/application/application.service.js';
+import type { AppError as AppErrorClass } from '../src/lib/errors.js';
+
+/**
+ * Admin no longer has an HTTP route to schedule/cancel/complete an interview
+ * or change an application's stage directly (see admin-pipeline.routes.ts and
+ * admin-coordination.routes.ts) — that authority was removed as a product
+ * decision. These tests are not about that authority; they are regression
+ * locks on the underlying service behaviour (matrix checks, notification
+ * side effects, conflict handling), so they call the service layer directly,
+ * the same way the removed routes used to.
+ */
+let recommendationService: typeof RecommendationService;
+let applicationService: typeof ApplicationService;
+let AppError: typeof AppErrorClass;
+let employerUserId: string;
 
 let ctx: TestContext;
 let app: Express;
@@ -37,6 +61,9 @@ beforeAll(async () => {
   const employerRepo = await import('../src/repositories/employer.repo.js');
   const jobRepo = await import('../src/repositories/job.repo.js');
   const { hashPassword } = await import('../src/lib/password.js');
+  recommendationService = await import('../src/modules/admin/recommendation.service.js');
+  applicationService = await import('../src/modules/application/application.service.js');
+  ({ AppError } = await import('../src/lib/errors.js'));
 
   userRepo.create({
     email: 'admin@bktc.test',
@@ -72,6 +99,7 @@ beforeAll(async () => {
   });
   employerCookie = sessionCookie(employer);
   const employerMe = await request(app).get('/api/auth/me').set('Cookie', employerCookie);
+  employerUserId = employerMe.body.id;
   const employerProfileId = employerRepo.findByUserId(employerMe.body.id)!.id;
   getDb()
     .prepare("UPDATE employer_profile SET account_status='APPROVED' WHERE id=?")
@@ -140,26 +168,42 @@ describe('an interview cannot be arranged around the stage matrix', () => {
     // Scheduling used to write the stage directly, so a withdrawn candidate
     // could be booked in and sent a confirmation for a process they had
     // explicitly opted out of.
-    const res = await asAdmin(request(app).post(`/api/admin/applications/${id}/interview`)).send({
-      scheduledAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-      durationMinutes: 45,
-      mode: 'VIDEO',
-      locationOrLink: 'https://meet.example.com/x',
-    });
-    expect(res.status).toBe(400);
+    let caught: unknown;
+    try {
+      recommendationService.scheduleInterview({
+        applicationId: id,
+        scheduledAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+        durationMinutes: 45,
+        mode: 'VIDEO',
+        locationOrLink: 'https://meet.example.com/x',
+        actorId: employerUserId,
+        role: 'EMPLOYER',
+      });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(AppError);
+    expect((caught as AppError).status).toBe(400);
   });
 
   it('is refused from APPLIED, which the matrix does not allow', async () => {
-    const res = await asAdmin(
-      request(app).post(`/api/admin/applications/${applicationId}/interview`),
-    ).send({
-      scheduledAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-      durationMinutes: 45,
-      mode: 'VIDEO',
-      locationOrLink: 'https://meet.example.com/x',
-    });
     // The application is at UNDER_REVIEW from the note test above.
-    expect(res.status).toBe(400);
+    let caught: unknown;
+    try {
+      recommendationService.scheduleInterview({
+        applicationId,
+        scheduledAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+        durationMinutes: 45,
+        mode: 'VIDEO',
+        locationOrLink: 'https://meet.example.com/x',
+        actorId: employerUserId,
+        role: 'EMPLOYER',
+      });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(AppError);
+    expect((caught as AppError).status).toBe(400);
   });
 });
 
@@ -167,27 +211,29 @@ describe('a cancelled interview', () => {
   let interviewId: string;
 
   it('tells both parties', async () => {
-    await asAdmin(request(app).post(`/api/admin/applications/${applicationId}/stage`)).send({
-      stage: 'SHORTLISTED',
+    applicationService.changeStage({
+      applicationId,
+      toStage: 'SHORTLISTED',
+      role: 'EMPLOYER',
+      actorId: employerUserId,
     });
-    const booked = await asAdmin(
-      request(app).post(`/api/admin/applications/${applicationId}/interview`),
-    ).send({
+    const booked = recommendationService.scheduleInterview({
+      applicationId,
       scheduledAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
       durationMinutes: 45,
       mode: 'VIDEO',
       locationOrLink: 'https://meet.example.com/bktc',
+      actorId: employerUserId,
+      role: 'EMPLOYER',
     });
-    expect(booked.status).toBe(201);
-    interviewId = booked.body.id;
+    interviewId = booked.interviewId;
 
     const before = await request(app)
       .get('/api/notifications')
       .set('Cookie', candidateCookie);
     const beforeCount = before.body.items.length as number;
 
-    const cancelled = await asAdmin(request(app).post(`/api/admin/interviews/${interviewId}/cancel`));
-    expect(cancelled.status).toBe(204);
+    recommendationService.cancelInterview(interviewId, employerUserId, 'EMPLOYER');
 
     const after = await request(app).get('/api/notifications').set('Cookie', candidateCookie);
     expect(after.body.items.length).toBeGreaterThan(beforeCount);
@@ -195,10 +241,16 @@ describe('a cancelled interview', () => {
   });
 
   it('cannot then be marked as held', async () => {
-    // Used to return 204 and advance the application to INTERVIEWED, recording
-    // a meeting that never happened — and from INTERVIEWED an offer can be made.
-    const res = await asAdmin(request(app).post(`/api/admin/interviews/${interviewId}/complete`));
-    expect(res.status).toBe(409);
+    // Used to advance the application to INTERVIEWED, recording a meeting
+    // that never happened — and from INTERVIEWED an offer can be made.
+    let caught: unknown;
+    try {
+      recommendationService.completeInterview(interviewId, employerUserId, 'EMPLOYER');
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(AppError);
+    expect((caught as AppError).status).toBe(409);
 
     const applicationRepo = await import('../src/repositories/application.repo.js');
     expect(applicationRepo.findById(applicationId)!.stage).not.toBe('INTERVIEWED');
@@ -357,16 +409,18 @@ describe('an interview does not outlive its application', () => {
       .set(CSRF_HEADER);
     const id = applied.body.applicationId as string;
 
-    for (const stage of ['UNDER_REVIEW', 'SHORTLISTED']) {
-      await asAdmin(request(app).post(`/api/admin/applications/${id}/stage`)).send({ stage });
+    for (const stage of ['UNDER_REVIEW', 'SHORTLISTED'] as const) {
+      applicationService.changeStage({ applicationId: id, toStage: stage, role: 'EMPLOYER', actorId: employerUserId });
     }
-    const booked = await asAdmin(request(app).post(`/api/admin/applications/${id}/interview`)).send({
+    recommendationService.scheduleInterview({
+      applicationId: id,
       scheduledAt: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
       durationMinutes: 45,
       mode: 'VIDEO',
       locationOrLink: 'https://meet.example.com/x',
+      actorId: employerUserId,
+      role: 'EMPLOYER',
     });
-    expect(booked.status).toBe(201);
     return { applicationId: id, cookie };
   }
 
@@ -389,8 +443,11 @@ describe('an interview does not outlive its application', () => {
     const { applicationId: id } = await bookOne();
     const interviewRepo = await import('../src/repositories/interview.repo.js');
 
-    await asAdmin(request(app).post(`/api/admin/applications/${id}/stage`)).send({
-      stage: 'NOT_SELECTED',
+    applicationService.changeStage({
+      applicationId: id,
+      toStage: 'NOT_SELECTED',
+      role: 'EMPLOYER',
+      actorId: employerUserId,
       outcomeReasonCode: 'SKILLS_MISMATCH',
     });
     expect(interviewRepo.findScheduled(id)).toBeUndefined();
@@ -401,8 +458,11 @@ describe('an interview does not outlive its application', () => {
     const interviewRepo = await import('../src/repositories/interview.repo.js');
     const live = interviewRepo.findScheduled(id)!;
 
-    await asAdmin(request(app).post(`/api/admin/applications/${id}/stage`)).send({
-      stage: 'INTERVIEWED',
+    applicationService.changeStage({
+      applicationId: id,
+      toStage: 'INTERVIEWED',
+      role: 'EMPLOYER',
+      actorId: employerUserId,
     });
 
     // Cancelling here would send "your interview is cancelled" moments before

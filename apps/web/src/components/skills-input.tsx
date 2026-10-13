@@ -1,5 +1,6 @@
 /**
- * Skills entry with suggestions.
+ * Skills entry — a free-form tag input, with an optional taxonomy-backed
+ * suggestion dropdown.
  *
  * Suggestions come from the approved skill list so the taxonomy stays coherent
  * — Phase 2 scores skills for 35 of 100 points, and "AutoCAD" fragmenting into
@@ -7,6 +8,13 @@
  * refusing a real skill that happens to be missing would be worse; new entries
  * simply arrive unapproved and stay out of everyone else's suggestions until an
  * admin accepts them.
+ *
+ * `suggestions` defaults to on (the Employer job editor's required/good-to-have
+ * skill fields rely on it exactly as before) and is turned off explicitly by
+ * the Candidate profile wizard: the candidate-facing skills field must be
+ * genuinely free-form — no predefined list, no autocomplete, nothing to pick
+ * from — so typing there must not even query the suggestion endpoint, not
+ * just hide its results.
  */
 
 import { useState, useRef, type KeyboardEvent } from 'react';
@@ -21,6 +29,7 @@ export function SkillsInput({
   disabled,
   max = LIMITS.candidate.skills.max,
   min = LIMITS.candidate.skills.min,
+  suggestions: suggestionsEnabled = true,
 }: {
   /** Required when a page renders more than one — the job editor has two, and
    *  a shared id left both <label htmlFor> pointing at nothing. */
@@ -30,19 +39,26 @@ export function SkillsInput({
   disabled?: boolean;
   max?: number;
   min?: number;
+  /** Off for the Candidate profile — see the file-level note above. */
+  suggestions?: boolean;
 }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { data } = useSkillSearch(query);
+  // Querying is itself skipped (not just the rendered list) when suggestions
+  // are off — a disabled-but-still-fetching hook would still hit the API on
+  // every keystroke for a field that is supposed to be plain free text.
+  const { data } = useSkillSearch(suggestionsEnabled ? query : '');
 
   const atLimit = value.length >= max;
 
-  const suggestions = (data?.skills ?? [])
-    .map((s) => s.name)
-    .filter((name) => !value.some((v) => v.toLowerCase() === name.toLowerCase()))
-    .slice(0, 8);
+  const suggestions = suggestionsEnabled
+    ? (data?.skills ?? [])
+        .map((s) => s.name)
+        .filter((name) => !value.some((v) => v.toLowerCase() === name.toLowerCase()))
+        .slice(0, 8)
+    : [];
 
   function add(skill: string) {
     const trimmed = skill.trim();
@@ -127,10 +143,12 @@ export function SkillsInput({
             onKeyDown={onKeyDown}
             onBlur={() => setTimeout(() => setOpen(false), 150)}
             autoComplete="off"
-            role="combobox"
-            aria-expanded={open && suggestions.length > 0}
-            aria-controls={`${id}-suggestions`}
-            aria-autocomplete="list"
+            // A combobox role promises a popup that, with suggestions off,
+            // never appears — a screen reader should not announce one.
+            role={suggestionsEnabled ? 'combobox' : undefined}
+            aria-expanded={suggestionsEnabled ? open && suggestions.length > 0 : undefined}
+            aria-controls={suggestionsEnabled ? `${id}-suggestions` : undefined}
+            aria-autocomplete={suggestionsEnabled ? 'list' : undefined}
             aria-activedescendant={
               activeIndex >= 0 ? `${id}-suggestion-${activeIndex}` : undefined
             }

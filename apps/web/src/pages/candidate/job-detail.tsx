@@ -78,7 +78,15 @@ export function JobDetailPage() {
 
       <Card className={CANDIDATE_CARD}>
         <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Row label="Location" value={[job.cityName, job.state].filter(Boolean).join(', ')} />
+          <Row
+            label={job.additionalLocations.length > 0 ? 'Locations' : 'Location'}
+            value={[
+              [job.cityName, job.state].filter(Boolean).join(', '),
+              ...job.additionalLocations.map((l) => [l.cityName, l.state].filter(Boolean).join(', ')),
+            ]
+              .filter(Boolean)
+              .join('; ')}
+          />
           <Row label="Work type" value={job.workType ? WORK_TYPE_LABELS[job.workType] : null} />
           <Row
             label="Experience"

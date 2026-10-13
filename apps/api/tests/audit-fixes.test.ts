@@ -9,8 +9,19 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
-import { canTransition, mobileSchema } from '@bktc/shared';
+import { canTransition, mobileSchema, type ApplicationStage } from '@bktc/shared';
 import { createTestContext, CSRF_HEADER, sessionCookie, type TestContext } from './helpers/test-app.js';
+// `import type` only — erased at compile time, no runtime import side effect.
+// A real (value) import of this module transitively reaches config/env.ts,
+// which parses process.env ONCE at first import; done statically it would be
+// hoisted ahead of beforeAll and lock in the default (real, non-test)
+// DATABASE_PATH before the test harness ever gets a chance to override it.
+// The actual value is loaded dynamically inside beforeAll instead.
+import type * as ApplicationService from '../src/modules/application/application.service.js';
+let applicationService: typeof ApplicationService;
+
+let candidateUserId: string;
+let employerUserId: string;
 
 let ctx: TestContext;
 let app: Express;
@@ -33,6 +44,7 @@ beforeAll(async () => {
   const employerRepo = await import('../src/repositories/employer.repo.js');
   const jobRepo = await import('../src/repositories/job.repo.js');
   const { hashPassword } = await import('../src/lib/password.js');
+  applicationService = await import('../src/modules/application/application.service.js');
 
   userRepo.create({
     email: 'admin@bktc.test',
@@ -61,6 +73,7 @@ beforeAll(async () => {
     .attach('resume', PDF, 'anita.pdf');
 
   const me = await request(app).get('/api/auth/me').set('Cookie', candidateCookie);
+  candidateUserId = me.body.id;
   candidateProfileId = candidateRepo.findByUserId(me.body.id)!.id;
   candidateRepo.setStatus(candidateProfileId, 'APPROVED');
 
@@ -73,6 +86,7 @@ beforeAll(async () => {
   });
   employerCookie = sessionCookie(employer);
   const employerMe = await request(app).get('/api/auth/me').set('Cookie', employerCookie);
+  employerUserId = employerMe.body.id;
   const employerProfileId = employerRepo.findByUserId(employerMe.body.id)!.id;
   getDb().prepare("UPDATE employer_profile SET account_status='APPROVED' WHERE id=?").run(employerProfileId);
 
@@ -92,7 +106,18 @@ const asAdmin = (r: request.Test) => r.set('Cookie', adminCookie).set(CSRF_HEADE
 const asEmployer = (r: request.Test) => r.set('Cookie', employerCookie).set(CSRF_HEADER);
 const asCandidate = (r: request.Test) => r.set('Cookie', candidateCookie).set(CSRF_HEADER);
 
-describe('CRIT-1 — the admin can drive the pipeline', () => {
+/**
+ * CRIT-1 used to lock down that the admin COULD drive the pipeline end to
+ * end. Product decision for this round of work: Admin's pipeline view is
+ * read-only — Candidate and Employer own every hiring decision and all
+ * interview coordination. The mutating routes are gone (not just hidden),
+ * so this now locks down the opposite: admin can still list/read, but every
+ * mutation route 404s, including a direct, crafted request — UI hiding alone
+ * would not be authorization. State needed for the timeline assertion is
+ * seeded through the service layer directly, the same domain logic the old
+ * admin route used to call.
+ */
+describe('CRIT-1 — the admin pipeline is read-only', () => {
   it('lists applications', async () => {
     const res = await asAdmin(request(app).get('/api/admin/applications'));
     expect(res.status).toBe(200);
@@ -100,7 +125,7 @@ describe('CRIT-1 — the admin can drive the pipeline', () => {
     expect(res.body.items[0].candidateName).toBe('Anita Desai');
   });
 
-  it('offers the admin-only transitions the matrix declares', async () => {
+  it('no longer exposes a stage-change or interview-scheduling route to the admin', async () => {
     await asEmployer(request(app).post(`/api/employer/applications/${applicationId}/stage`)).send({
       stage: 'UNDER_REVIEW',
     });
@@ -108,51 +133,53 @@ describe('CRIT-1 — the admin can drive the pipeline', () => {
       stage: 'SHORTLISTED',
     });
 
-    const res = await asAdmin(request(app).get(`/api/admin/applications/${applicationId}`));
-
-    /*
-     * INTERVIEW_SCHEDULED is deliberately absent from the plain stage actions.
-     * It is reachable only by scheduling an actual interview — a stage that
-     * says "interview arranged" with no time, place or interview row behind it
-     * is a lie told to both parties. The next test makes the move properly.
-     */
-    expect(res.body.availableStages).not.toContain('INTERVIEW_SCHEDULED');
-
-    const refused = await asAdmin(
+    const stage = await asAdmin(
       request(app).post(`/api/admin/applications/${applicationId}/stage`),
     ).send({ stage: 'INTERVIEW_SCHEDULED' });
-    expect(refused.status).toBe(400);
-  });
+    expect(stage.status).toBe(404);
 
-  it('drives an application all the way to JOINED', async () => {
-    // The interview step carries its facts: scheduling moves the stage.
-    const booked = await asAdmin(
+    const interview = await asAdmin(
       request(app).post(`/api/admin/applications/${applicationId}/interview`),
     ).send({
+      scheduledAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+      mode: 'VIDEO',
+      locationOrLink: 'https://meet.example.com/bktc',
+    });
+    expect(interview.status).toBe(404);
+
+    // The GET side of the same resource is still there — read, not write.
+    const read = await asAdmin(request(app).get(`/api/admin/applications/${applicationId}`));
+    expect(read.status).toBe(200);
+    expect(read.body.stage).toBe('SHORTLISTED');
+  });
+
+  it('records the whole journey in the timeline, each step driven by its actual authorized actor', async () => {
+    // INTERVIEW_SCHEDULED and INTERVIEWED are the employer's own actions now
+    // (see recommendation.service.ts); OFFER_MADE is the employer's, same as
+    // before; OFFER_ACCEPTED is the candidate's own decision; JOINED is the
+    // employer confirming it. None of this is admin-driven any more.
+    const recommendationService = await import('../src/modules/admin/recommendation.service.js');
+    recommendationService.scheduleInterview({
+      applicationId,
       scheduledAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
       durationMinutes: 45,
       mode: 'VIDEO',
       locationOrLink: 'https://meet.example.com/bktc',
+      actorId: employerUserId,
+      role: 'EMPLOYER',
     });
-    expect(booked.status).toBe(201);
-
-    const applicationRepoEarly = await import('../src/repositories/application.repo.js');
-    expect(applicationRepoEarly.findById(applicationId)!.stage).toBe('INTERVIEW_SCHEDULED');
-
-    for (const stage of ['INTERVIEWED', 'OFFER_MADE', 'OFFER_ACCEPTED', 'JOINED']) {
-      const res = await asAdmin(
-        request(app).post(`/api/admin/applications/${applicationId}/stage`),
-      ).send({ stage });
-      expect(res.status, stage).toBe(200);
-      expect(res.body.stage).toBe(stage);
+    for (const [toStage, role, actorId] of [
+      ['INTERVIEWED', 'EMPLOYER', employerUserId],
+      ['OFFER_MADE', 'EMPLOYER', employerUserId],
+      ['OFFER_ACCEPTED', 'CANDIDATE', candidateUserId],
+      ['JOINED', 'EMPLOYER', employerUserId],
+    ] as const satisfies readonly [ApplicationStage, 'EMPLOYER' | 'CANDIDATE', string][]) {
+      applicationService.changeStage({ applicationId, toStage, role, actorId });
     }
-    // OFFER_ACCEPTED/JOINED are the only source for Phase 2's offer-acceptance
-    // rate, and it cannot be reconstructed later.
+
     const applicationRepo = await import('../src/repositories/application.repo.js');
     expect(applicationRepo.findById(applicationId)!.stage).toBe('JOINED');
-  });
 
-  it('records the whole journey in the timeline', async () => {
     const res = await asAdmin(request(app).get(`/api/admin/applications/${applicationId}`));
     const stages = res.body.timeline.map((e: { toStage: string }) => e.toStage);
     expect(stages).toEqual([
@@ -165,13 +192,6 @@ describe('CRIT-1 — the admin can drive the pipeline', () => {
       'OFFER_ACCEPTED',
       'JOINED',
     ]);
-  });
-
-  it('refuses an illegal jump even for an admin', async () => {
-    const res = await asAdmin(request(app).post(`/api/admin/applications/${applicationId}/stage`)).send({
-      stage: 'APPLIED',
-    });
-    expect(res.status).toBe(400);
   });
 
   it('is not reachable by an employer or candidate', async () => {

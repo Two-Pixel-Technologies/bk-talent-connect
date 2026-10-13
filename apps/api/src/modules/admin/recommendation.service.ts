@@ -14,7 +14,7 @@
  */
 
 
-import { canTransition, type ApplicationStage } from '@bktc/shared';
+import { canTransition, type ApplicationStage, type Role } from '@bktc/shared';
 import { transaction } from '../../repositories/tx.js';
 import * as applicationRepo from '../../repositories/application.repo.js';
 import * as candidateRepo from '../../repositories/candidate.repo.js';
@@ -162,6 +162,10 @@ export interface ScheduleInput {
   readonly locationOrLink: string;
   readonly instructions?: string | undefined;
   readonly actorId: string;
+  /** Who is booking it — the employer in production now; kept generic rather
+   *  than hardcoded so this function does not need to change again if that
+   *  ever does. */
+  readonly role: Role;
 }
 
 /**
@@ -187,7 +191,7 @@ export function scheduleInterview(input: ScheduleInput): { interviewId: string; 
    */
   const from = application.stage as ApplicationStage;
   if (from !== 'INTERVIEW_SCHEDULED') {
-    const check = canTransition(from, 'INTERVIEW_SCHEDULED', 'ADMIN', {
+    const check = canTransition(from, 'INTERVIEW_SCHEDULED', input.role, {
       stageChangedAt: new Date(application.last_stage_change_at),
     });
     if (!check.allowed) {
@@ -240,7 +244,7 @@ export function scheduleInterview(input: ScheduleInput): { interviewId: string; 
         fromStage: application.stage,
         toStage: 'INTERVIEW_SCHEDULED',
         changedById: input.actorId,
-        changedByRole: 'ADMIN',
+        changedByRole: input.role,
         note: 'Interview arranged',
       });
     }
@@ -258,7 +262,7 @@ export function scheduleInterview(input: ScheduleInput): { interviewId: string; 
   });
 }
 
-export function cancelInterview(interviewId: string, actorId: string): void {
+export function cancelInterview(interviewId: string, actorId: string, role: Role): void {
   const interview = interviewRepo.findById(interviewId);
   if (!interview) throw notFound('Interview not found.');
 
@@ -276,7 +280,7 @@ export function cancelInterview(interviewId: string, actorId: string): void {
       fromStage: application?.stage ?? 'INTERVIEW_SCHEDULED',
       toStage: application?.stage ?? 'INTERVIEW_SCHEDULED',
       changedById: actorId,
-      changedByRole: 'ADMIN',
+      changedByRole: role,
       note: 'Interview cancelled',
     });
 
@@ -296,12 +300,28 @@ export function cancelInterview(interviewId: string, actorId: string): void {
 }
 
 /** Marks the interview done and advances the application. */
-export function completeInterview(interviewId: string, actorId: string): void {
+export function completeInterview(interviewId: string, actorId: string, role: Role): void {
   const interview = interviewRepo.findById(interviewId);
   if (!interview) throw notFound('Interview not found.');
 
   const application = applicationRepo.findById(interview.application_id);
   if (!application) throw notFound('Application not found.');
+
+  /*
+   * Legality is the matrix's decision here too — matching scheduleInterview.
+   * Without this check, completing was gated only by the route's role
+   * middleware, which is correct for who the route accepts but says nothing
+   * about whether THIS transition (INTERVIEW_SCHEDULED -> INTERVIEWED) is one
+   * that role may make from the application's actual current stage.
+   */
+  if (application.stage === 'INTERVIEW_SCHEDULED') {
+    const check = canTransition('INTERVIEW_SCHEDULED', 'INTERVIEWED', role, {
+      stageChangedAt: new Date(application.last_stage_change_at),
+    });
+    if (!check.allowed) {
+      throw badRequest(check.reason ?? 'That change is not allowed.');
+    }
+  }
 
   transaction(() => {
     /*
@@ -321,7 +341,7 @@ export function completeInterview(interviewId: string, actorId: string): void {
         fromStage: 'INTERVIEW_SCHEDULED',
         toStage: 'INTERVIEWED',
         changedById: actorId,
-        changedByRole: 'ADMIN',
+        changedByRole: role,
         note: 'Interview completed',
       });
     }

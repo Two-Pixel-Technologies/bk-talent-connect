@@ -358,19 +358,37 @@ describe('stage transitions', () => {
     expect(applicationRepo.findById(applicationId)!.first_employer_action_at).toBeTruthy();
   });
 
-  it('refuses to let an employer schedule an interview themselves', async () => {
+  it('refuses to set INTERVIEW_SCHEDULED through the bare stage route', async () => {
     const res = await asEmployer(request(app).post(`/api/employer/applications/${applicationId}/stage`)).send({
       stage: 'INTERVIEW_SCHEDULED',
     });
-    // BK coordinates every interview; the employer requests one (P6).
+    // The employer owns interview scheduling now, but through the dedicated
+    // schedule-interview route, which carries the actual time/place/mode —
+    // not through a bare stage-set that would leave a stage with no interview
+    // behind it.
     expect(res.status).toBe(403);
   });
 
   it('rejects an illegal jump', async () => {
     const res = await asEmployer(request(app).post(`/api/employer/applications/${applicationId}/stage`)).send({
+      stage: 'INTERVIEWED',
+    });
+    // Same reasoning as INTERVIEW_SCHEDULED above — blocked categorically by
+    // this route, regardless of the application's current stage.
+    expect(res.status).toBe(403);
+  });
+
+  it('accepts JOINED as a category but still rejects it from the wrong current stage', async () => {
+    // JOINED is now a legitimate employer-owned target (confirming someone
+    // started) — the generic route no longer blocks it outright the way it
+    // blocks INTERVIEW_SCHEDULED/INTERVIEWED above. It is still illegal from
+    // wherever this application actually sits (nowhere near OFFER_ACCEPTED),
+    // so the matrix itself rejects it with 400, not the route's category
+    // check with 403.
+    const res = await asEmployer(request(app).post(`/api/employer/applications/${applicationId}/stage`)).send({
       stage: 'JOINED',
     });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(400);
   });
 
   it('reveals the company once shortlisted', async () => {
@@ -428,6 +446,213 @@ describe('the transition matrix', () => {
     expect(
       canTransition('NOT_SELECTED', 'SHORTLISTED', 'EMPLOYER', { stageChangedAt: recent, now }).allowed,
     ).toBe(false);
+  });
+});
+
+/**
+ * The hiring workflow Candidate/Employer now own end to end: interview
+ * scheduling through to the final decision. Each transition here used to be
+ * admin-only (see stages.ts's history); this locks down who can actually
+ * perform it now, that an admin cannot even with a crafted request, and that
+ * the result persists and is visible to both sides and to the admin's
+ * read-only pipeline.
+ */
+describe('candidate/employer-owned hiring progression', () => {
+  let ownApplicationId: string;
+  let ownCandidateCookie: string;
+  let interviewId: string;
+  let adminCookie: string;
+
+  beforeAll(async () => {
+    const userRepo = await import('../src/repositories/user.repo.js');
+    const candidateRepo = await import('../src/repositories/candidate.repo.js');
+    const { hashPassword } = await import('../src/lib/password.js');
+
+    userRepo.create({
+      email: 'admin@bktc.test',
+      passwordHash: await hashPassword('admin-password-1'),
+      role: 'ADMIN',
+    });
+    adminCookie = sessionCookie(
+      await request(app)
+        .post('/api/auth/login')
+        .set(CSRF_HEADER)
+        .send({ email: 'admin@bktc.test', password: 'admin-password-1' }),
+    );
+
+    const candidate = await request(app).post('/api/auth/register/candidate').set(CSRF_HEADER).send({
+      fullName: 'Deepak Shah',
+      email: 'deepak@example.com',
+      mobile: '9876543299',
+      password: 'correct-horse-9',
+      consentToShare: true,
+    });
+    ownCandidateCookie = sessionCookie(candidate);
+    const me = await request(app).get('/api/auth/me').set('Cookie', ownCandidateCookie);
+    candidateRepo.setStatus(candidateRepo.findByUserId(me.body.id)!.id, 'APPROVED');
+
+    const applied = await request(app)
+      .post(`/api/candidate/jobs/${jobId}/apply`)
+      .set('Cookie', ownCandidateCookie)
+      .set(CSRF_HEADER);
+    ownApplicationId = applied.body.applicationId;
+
+    for (const stage of ['UNDER_REVIEW', 'SHORTLISTED']) {
+      await asEmployer(request(app).post(`/api/employer/applications/${ownApplicationId}/stage`)).send({
+        stage,
+      });
+    }
+  });
+
+  const asOwnCandidate = (r: request.Test) => r.set('Cookie', ownCandidateCookie).set(CSRF_HEADER);
+  const asAdmin = (r: request.Test) => r.set('Cookie', adminCookie).set(CSRF_HEADER);
+
+  it('lets the employer schedule the interview directly', async () => {
+    const res = await asEmployer(request(app).post(`/api/employer/applications/${ownApplicationId}/interview`)).send({
+      scheduledAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+      durationMinutes: 45,
+      mode: 'VIDEO',
+      locationOrLink: 'https://meet.example.com/deepak',
+    });
+    expect(res.status).toBe(201);
+    interviewId = res.body.interview.id;
+
+    const app1 = await asEmployer(request(app).get(`/api/employer/applications/${ownApplicationId}`));
+    expect(app1.body.stage).toBe('INTERVIEW_SCHEDULED');
+
+    // Both the candidate and the employer see the identical persisted stage.
+    const candidateView = await asOwnCandidate(request(app).get('/api/candidate/applications'));
+    const row = candidateView.body.items.find((i: { id: string }) => i.id === ownApplicationId);
+    expect(row.stage).toBe('INTERVIEW_SCHEDULED');
+  });
+
+  it('offers the candidate no scheduling endpoint at all — there is no such route to authorize or forbid', async () => {
+    // Scheduling is entirely the employer's action; the candidate side of
+    // the product never exposed a schedule/cancel/complete-interview route,
+    // before or after this change, so this is a 404 on a path that was never
+    // mounted, not a 403 on one that exists but is forbidden.
+    const res = await asOwnCandidate(
+      request(app).post(`/api/candidate/applications/${ownApplicationId}/interview`),
+    ).send({ scheduledAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(), mode: 'VIDEO' });
+    expect(res.status).toBe(404);
+  });
+
+  it('refuses another employer acting on an interview they do not own', async () => {
+    const intruder = await request(app).post('/api/auth/register/employer').set(CSRF_HEADER).send({
+      companyName: 'Intruder Co',
+      hrContactName: 'Someone Else',
+      email: 'intruder@example.com',
+      hrContactPhone: '9876500099',
+      password: 'correct-horse-8',
+    });
+    const res = await request(app)
+      .post(`/api/employer/interviews/${interviewId}/cancel`)
+      .set('Cookie', sessionCookie(intruder))
+      .set(CSRF_HEADER);
+    expect(res.status).toBe(403);
+  });
+
+  it('an admin cannot schedule, cancel or complete an interview even with a direct request', async () => {
+    const schedule = await asAdmin(
+      request(app).post(`/api/admin/applications/${ownApplicationId}/interview`),
+    ).send({ scheduledAt: new Date(Date.now() + 72 * 3600 * 1000).toISOString(), mode: 'VIDEO', locationOrLink: 'x' });
+    expect(schedule.status).toBe(404);
+
+    const cancel = await asAdmin(request(app).post(`/api/admin/interviews/${interviewId}/cancel`));
+    expect(cancel.status).toBe(404);
+
+    const complete = await asAdmin(request(app).post(`/api/admin/interviews/${interviewId}/complete`));
+    expect(complete.status).toBe(404);
+
+    const stage = await asAdmin(
+      request(app).post(`/api/admin/applications/${ownApplicationId}/stage`),
+    ).send({ stage: 'INTERVIEWED' });
+    expect(stage.status).toBe(404);
+
+    // Read-only visibility is still there.
+    const read = await asAdmin(request(app).get(`/api/admin/applications/${ownApplicationId}`));
+    expect(read.status).toBe(200);
+    expect(read.body.stage).toBe('INTERVIEW_SCHEDULED');
+  });
+
+  it('lets the employer mark the interview complete, advancing the stage', async () => {
+    const res = await asEmployer(request(app).post(`/api/employer/interviews/${interviewId}/complete`));
+    expect(res.status).toBe(204);
+
+    const read = await asEmployer(request(app).get(`/api/employer/applications/${ownApplicationId}`));
+    expect(read.body.stage).toBe('INTERVIEWED');
+  });
+
+  it('lets the employer make an offer, then the candidate accept it', async () => {
+    const offer = await asEmployer(request(app).post(`/api/employer/applications/${ownApplicationId}/stage`)).send({
+      stage: 'OFFER_MADE',
+    });
+    expect(offer.status).toBe(200);
+
+    // The employer cannot accept their own offer on the candidate's behalf.
+    const employerTriesAccept = await asEmployer(
+      request(app).post(`/api/employer/applications/${ownApplicationId}/stage`),
+    ).send({ stage: 'OFFER_ACCEPTED' });
+    expect(employerTriesAccept.status).toBe(403);
+
+    const accept = await asOwnCandidate(
+      request(app).post(`/api/candidate/applications/${ownApplicationId}/accept-offer`),
+    );
+    expect(accept.status).toBe(200);
+    expect(accept.body.stage).toBe('OFFER_ACCEPTED');
+
+    // Persisted and visible to the employer too, after refetch.
+    const employerRead = await asEmployer(request(app).get(`/api/employer/applications/${ownApplicationId}`));
+    expect(employerRead.body.stage).toBe('OFFER_ACCEPTED');
+  });
+
+  it('refuses a candidate trying to mark themselves joined', async () => {
+    // The employer's own /stage route, with the candidate's session: blocked
+    // by the role middleware before it ever reaches the matrix check.
+    const res = await request(app)
+      .post(`/api/employer/applications/${ownApplicationId}/stage`)
+      .set('Cookie', ownCandidateCookie)
+      .set(CSRF_HEADER)
+      .send({ stage: 'JOINED' });
+    expect(res.status).toBe(403);
+  });
+
+  it('lets the employer confirm joining — the final hiring decision, resulting in JOINED', async () => {
+    const res = await asEmployer(request(app).post(`/api/employer/applications/${ownApplicationId}/stage`)).send({
+      stage: 'JOINED',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.stage).toBe('JOINED');
+
+    // Persists after reload, visible to the candidate too.
+    const candidateRead = await asOwnCandidate(request(app).get('/api/candidate/applications'));
+    const row = candidateRead.body.items.find((i: { id: string }) => i.id === ownApplicationId);
+    expect(row.stage).toBe('JOINED');
+
+    // The admin's read-only pipeline reflects it too, after cache invalidation
+    // is a frontend concern — here, simply after a fresh GET.
+    const adminRead = await asAdmin(request(app).get(`/api/admin/applications/${ownApplicationId}`));
+    expect(adminRead.body.stage).toBe('JOINED');
+  });
+
+  it('does not affect any other application for the same job', async () => {
+    const list = await asEmployer(request(app).get(`/api/employer/jobs/${jobId}/applications`));
+    const others = list.body.items.filter((i: { id: string }) => i.id !== ownApplicationId);
+    expect(others.every((i: { stage: string }) => i.stage !== 'JOINED')).toBe(true);
+  });
+
+  it('leaves the candidate account status untouched by the application outcome', async () => {
+    const candidateRepo = await import('../src/repositories/candidate.repo.js');
+    const userRepo = await import('../src/repositories/user.repo.js');
+    const me = await request(app).get('/api/auth/me').set('Cookie', ownCandidateCookie);
+    const profile = candidateRepo.findByUserId(me.body.id)!;
+    expect(profile.profile_status).toBe('APPROVED');
+    void userRepo;
+  });
+
+  it('leaves the job posting approval untouched by the application outcome', async () => {
+    const jobRepo = await import('../src/repositories/job.repo.js');
+    expect(jobRepo.findById(jobId)!.status).toBe('APPROVED');
   });
 });
 

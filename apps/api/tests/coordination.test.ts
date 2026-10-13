@@ -13,6 +13,7 @@ let app: Express;
 let adminCookie: string;
 let candidateCookie: string;
 let employerCookie: string;
+let employerUserId: string;
 let candidateProfileId: string;
 let jobId: string;
 let applicationId: string;
@@ -70,6 +71,7 @@ beforeAll(async () => {
   });
   employerCookie = sessionCookie(employer);
   const employerMe = await request(app).get('/api/auth/me').set('Cookie', employerCookie);
+  employerUserId = employerMe.body.id;
   const employerProfileId = employerRepo.findByUserId(employerMe.body.id)!.id;
   getDb().prepare("UPDATE employer_profile SET account_status='APPROVED' WHERE id=?").run(employerProfileId);
 
@@ -237,30 +239,32 @@ describe('employer interview requests', () => {
   });
 });
 
+/**
+ * Admin can no longer schedule, reschedule, cancel or complete an interview —
+ * that is a hiring-coordination decision, and the product boundary (see
+ * admin-coordination.routes.ts) puts all of that with Candidate and Employer.
+ * The routes are gone, not just hidden, so these tests seed interview state
+ * directly through the service layer (the domain capability itself is still
+ * intact — only its admin HTTP surface was removed) and then assert the HTTP
+ * surface is actually gone, not merely unlinked from the nav.
+ */
 describe('scheduling', () => {
   let interviewId: string;
 
-  it('refuses a time in the past', async () => {
-    const res = await asAdmin(request(app).post(`/api/admin/applications/${applicationId}/interview`)).send({
-      scheduledAt: inHours(-4),
-      mode: 'VIDEO',
-      locationOrLink: 'https://meet.example.com/abc',
-    });
-    // A candidate travelling for a slot that already passed is the failure here.
-    expect(res.status).toBe(400);
-  });
+  it('books the interview and advances the application (as the employer, who now owns this)', async () => {
+    const service = await import('../src/modules/admin/recommendation.service.js');
 
-  it('books the interview and advances the application', async () => {
-    const res = await asAdmin(request(app).post(`/api/admin/applications/${applicationId}/interview`)).send({
+    const result = service.scheduleInterview({
+      applicationId,
       scheduledAt: inHours(48),
       durationMinutes: 45,
       mode: 'ONSITE',
       locationOrLink: 'Kirloskar works, Pune — gate 2',
       instructions: 'Ask for Ravi at reception. Carry a photo ID.',
+      actorId: employerUserId,
+      role: 'EMPLOYER',
     });
-
-    expect(res.status).toBe(201);
-    interviewId = res.body.id;
+    interviewId = result.interviewId;
 
     const applicationRepo = await import('../src/repositories/application.repo.js');
     expect(applicationRepo.findById(applicationId)!.stage).toBe('INTERVIEW_SCHEDULED');
@@ -270,6 +274,33 @@ describe('scheduling', () => {
     const res = await asAdmin(request(app).get('/api/admin/coordination'));
     expect(res.body.requests.length).toBe(0);
     expect(res.body.upcoming.length).toBe(1);
+  });
+
+  it('no longer exposes scheduling, cancelling or completing an interview to the admin API', async () => {
+    const schedule = await asAdmin(
+      request(app).post(`/api/admin/applications/${applicationId}/interview`),
+    ).send({ scheduledAt: inHours(72), mode: 'VIDEO', locationOrLink: 'https://meet.example.com/x' });
+    expect(schedule.status).toBe(404);
+
+    const cancel = await asAdmin(request(app).post(`/api/admin/interviews/${interviewId}/cancel`));
+    expect(cancel.status).toBe(404);
+
+    const complete = await asAdmin(request(app).post(`/api/admin/interviews/${interviewId}/complete`));
+    expect(complete.status).toBe(404);
+
+    // Read-only visibility into the same record is preserved.
+    const read = await asAdmin(
+      request(app).get(`/api/admin/applications/${applicationId}/interviews`),
+    );
+    expect(read.status).toBe(200);
+    expect(read.body.items.length).toBe(1);
+  });
+
+  it('no longer exposes admin stage-change or outcome-reason-altering decisions', async () => {
+    const stage = await asAdmin(request(app).post(`/api/admin/applications/${applicationId}/stage`)).send({
+      stage: 'NOT_SELECTED',
+    });
+    expect(stage.status).toBe(404);
   });
 
   it('shows both parties identical details', async () => {
@@ -323,14 +354,19 @@ describe('scheduling', () => {
     expect(admin.body.items[0].employerConfirmedAt).toBeTruthy();
   });
 
-  it('supersedes rather than overwrites when rescheduled', async () => {
-    const res = await asAdmin(request(app).post(`/api/admin/applications/${applicationId}/interview`)).send({
+  it('supersedes rather than overwrites when rescheduled (as the employer, via the service)', async () => {
+    const service = await import('../src/modules/admin/recommendation.service.js');
+
+    const result = service.scheduleInterview({
+      applicationId,
       scheduledAt: inHours(72),
+      durationMinutes: 45,
       mode: 'VIDEO',
       locationOrLink: 'https://meet.example.com/rescheduled',
+      actorId: employerUserId,
+      role: 'EMPLOYER',
     });
-    expect(res.status).toBe(201);
-    expect(res.body.rescheduled).toBe(true);
+    expect(result.rescheduled).toBe(true);
 
     const all = await asAdmin(request(app).get(`/api/admin/applications/${applicationId}/interviews`));
     // The original time survives — "we moved it twice" stays answerable.
@@ -339,16 +375,43 @@ describe('scheduling', () => {
     expect(superseded.supersededById).toBeTruthy();
   });
 
-  it('advances to INTERVIEWED when completed', async () => {
+  it('advances to INTERVIEWED when completed (as the employer, via the service)', async () => {
+    const service = await import('../src/modules/admin/recommendation.service.js');
+
     const all = await asAdmin(request(app).get(`/api/admin/applications/${applicationId}/interviews`));
     const live = all.body.items.find((i: { status: string }) => i.status === 'SCHEDULED');
 
-    const res = await asAdmin(request(app).post(`/api/admin/interviews/${live.id}/complete`));
-    expect(res.status).toBe(204);
+    service.completeInterview(live.id, employerUserId, 'EMPLOYER');
 
     const applicationRepo = await import('../src/repositories/application.repo.js');
     expect(applicationRepo.findById(applicationId)!.stage).toBe('INTERVIEWED');
     expect(interviewId).toBeTruthy();
+  });
+
+  it('refuses even a crafted direct service call claiming the admin role — the matrix rejects it, not just the missing route', async () => {
+    const service = await import('../src/modules/admin/recommendation.service.js');
+    const userRepo = await import('../src/repositories/user.repo.js');
+    const admin = userRepo.findByEmail('admin@bktc.test')!;
+
+    let caught: unknown;
+    try {
+      service.scheduleInterview({
+        applicationId,
+        scheduledAt: inHours(96),
+        durationMinutes: 45,
+        mode: 'VIDEO',
+        locationOrLink: 'https://meet.example.com/crafted',
+        actorId: admin.id,
+        role: 'ADMIN',
+      });
+    } catch (err) {
+      caught = err;
+    }
+    // INTERVIEWED is terminal-for-admin here: there is no legal ADMIN
+    // transition out of it at all, let alone to INTERVIEW_SCHEDULED — so this
+    // fails on the matrix itself, the same authority check a real request
+    // would hit, not merely because the admin route is unmounted.
+    expect(caught).toBeTruthy();
   });
 });
 

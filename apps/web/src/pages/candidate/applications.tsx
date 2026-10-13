@@ -23,6 +23,8 @@ import {
   useInterview,
   useConfirmInterview,
   useDeclineRecommendation,
+  useAcceptOffer,
+  useDeclineOffer,
   type TrackedApplication,
 } from '../../features/candidate/use-jobs.js';
 import { Alert, Badge, Button, Card, EmptyState } from '../../components/ui/index.js';
@@ -98,6 +100,8 @@ function ApplicationCard({ application: a }: { application: TrackedApplication }
   const [expanded, setExpanded] = useState(false);
   const withdraw = useWithdraw();
   const decline = useDeclineRecommendation();
+  const acceptOffer = useAcceptOffer();
+  const declineOffer = useDeclineOffer();
   const revealed = REVEALED_STAGES.includes(a.stage);
   const { data: company } = useCompanyReveal(a.id, revealed && expanded);
 
@@ -172,7 +176,47 @@ function ApplicationCard({ application: a }: { application: TrackedApplication }
             title={CANDIDATE_STAGE_MESSAGE[a.stage as 'OFFER_MADE']!.headline}
           >
             {CANDIDATE_STAGE_MESSAGE[a.stage as 'OFFER_MADE']!.body}
+
+            {a.stage === 'OFFER_MADE' && (
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <Button
+                  className="px-3 text-xs"
+                  loading={acceptOffer.isPending}
+                  onClick={() => {
+                    if (window.confirm('Accept this offer? The company will be told right away.')) {
+                      acceptOffer.mutate(a.id);
+                    }
+                  }}
+                >
+                  Accept offer
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="px-3 text-xs"
+                  loading={declineOffer.isPending}
+                  onClick={() => {
+                    if (
+                      window.confirm('Decline this offer? This cannot be undone, and the company will be told.')
+                    ) {
+                      declineOffer.mutate(a.id);
+                    }
+                  }}
+                >
+                  Decline offer
+                </Button>
+              </div>
+            )}
           </Alert>
+          <MutationFeedback
+            error={acceptOffer.error}
+            isSuccess={acceptOffer.isSuccess}
+            successMessage="Accepted. We have told the company."
+          />
+          <MutationFeedback
+            error={declineOffer.error}
+            isSuccess={declineOffer.isSuccess}
+            successMessage="Declined. We have told the company."
+          />
         </div>
       )}
 

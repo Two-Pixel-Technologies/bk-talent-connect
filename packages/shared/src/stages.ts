@@ -49,28 +49,58 @@ export interface StageTransition {
 
 export const ALLOWED_TRANSITIONS: readonly StageTransition[] = [
   // --- Employer-driven progression -----------------------------------------
-  { from: 'APPLIED', to: 'UNDER_REVIEW', roles: ['EMPLOYER', 'ADMIN'] },
-  { from: 'APPLIED', to: 'NOT_SELECTED', roles: ['EMPLOYER', 'ADMIN'] },
-  { from: 'UNDER_REVIEW', to: 'SHORTLISTED', roles: ['EMPLOYER', 'ADMIN'] },
-  { from: 'UNDER_REVIEW', to: 'NOT_SELECTED', roles: ['EMPLOYER', 'ADMIN'] },
-  { from: 'SHORTLISTED', to: 'NOT_SELECTED', roles: ['EMPLOYER', 'ADMIN'] },
-  { from: 'INTERVIEWED', to: 'OFFER_MADE', roles: ['EMPLOYER', 'ADMIN'] },
-  { from: 'INTERVIEWED', to: 'NOT_SELECTED', roles: ['EMPLOYER', 'ADMIN'] },
+  { from: 'APPLIED', to: 'UNDER_REVIEW', roles: ['EMPLOYER'] },
+  { from: 'APPLIED', to: 'NOT_SELECTED', roles: ['EMPLOYER'] },
+  { from: 'UNDER_REVIEW', to: 'SHORTLISTED', roles: ['EMPLOYER'] },
+  { from: 'UNDER_REVIEW', to: 'NOT_SELECTED', roles: ['EMPLOYER'] },
+  { from: 'SHORTLISTED', to: 'NOT_SELECTED', roles: ['EMPLOYER'] },
+  { from: 'INTERVIEWED', to: 'OFFER_MADE', roles: ['EMPLOYER'] },
+  { from: 'INTERVIEWED', to: 'NOT_SELECTED', roles: ['EMPLOYER'] },
 
-  // --- Admin-only: BK coordinates every interview ---------------------------
-  {
-    from: 'SHORTLISTED',
-    to: 'INTERVIEW_SCHEDULED',
-    roles: ['ADMIN'],
-    note: 'BK schedules and confirms with both parties; employers request, they do not schedule.',
-  },
-  { from: 'INTERVIEW_SCHEDULED', to: 'INTERVIEWED', roles: ['ADMIN'] },
-  { from: 'INTERVIEW_SCHEDULED', to: 'NOT_SELECTED', roles: ['ADMIN'] },
-  { from: 'OFFER_MADE', to: 'OFFER_ACCEPTED', roles: ['ADMIN'] },
-  { from: 'OFFER_MADE', to: 'OFFER_DECLINED', roles: ['ADMIN'] },
-  { from: 'OFFER_ACCEPTED', to: 'JOINED', roles: ['ADMIN'] },
+  /*
+   * --- Employer-driven interview coordination -------------------------------
+   *
+   * Previously admin-only ("BK schedules and confirms with both parties").
+   * Product decision: Candidate and Employer own interview coordination and
+   * every hiring decision end to end; Admin is read-only. The employer now
+   * schedules directly (via the same scheduleInterview/completeInterview
+   * service functions, parameterised by actor role instead of hardcoded to
+   * ADMIN) and can still just ask (requestInterview) if they would rather
+   * propose slots first.
+   */
+  { from: 'SHORTLISTED', to: 'INTERVIEW_SCHEDULED', roles: ['EMPLOYER'] },
+  { from: 'INTERVIEW_SCHEDULED', to: 'INTERVIEWED', roles: ['EMPLOYER'] },
+  { from: 'INTERVIEW_SCHEDULED', to: 'NOT_SELECTED', roles: ['EMPLOYER'] },
 
-  // --- Admin-only regressions ----------------------------------------------
+  /*
+   * --- The offer decision is the candidate's ---------------------------------
+   *
+   * Accepting or declining a job offer is unambiguously the candidate's own
+   * decision in any real hiring process, not the employer's and not BK's.
+   * Previously admin-only; BK had no business making this call on anyone's
+   * behalf, it simply had no other actor to assign it to.
+   */
+  { from: 'OFFER_MADE', to: 'OFFER_ACCEPTED', roles: ['CANDIDATE'] },
+  { from: 'OFFER_MADE', to: 'OFFER_DECLINED', roles: ['CANDIDATE'] },
+
+  /*
+   * --- Joining is the employer's to confirm -----------------------------------
+   * The employer is the party who actually observes the candidate starting —
+   * onboarding, first day — so they confirm it, previously admin-only.
+   */
+  { from: 'OFFER_ACCEPTED', to: 'JOINED', roles: ['EMPLOYER'] },
+
+  /*
+   * --- Admin-only regressions -----------------------------------------------
+   *
+   * These remain exactly as documented below — correction tools, never an
+   * employer or candidate action — but Admin's mutation routes are gone, so
+   * these three transitions are now structurally unreachable by anyone. That
+   * is a known, reported gap (see the project's hiring-workflow report), not
+   * something resolved by assigning them to a new actor: the existing intent
+   * explicitly excluded Employer from them, and Candidate was never a
+   * candidate for them either.
+   */
   {
     from: 'UNDER_REVIEW',
     to: 'APPLIED',

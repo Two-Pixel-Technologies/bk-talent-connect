@@ -4,7 +4,7 @@
 
 import { LIKE_ESCAPE_CLAUSE as LIKE, likeContains } from './like.js';
 import { getDb } from '../db/client.js';
-import type { JobRow, JobSkillRow, Row } from '../db/rows.js';
+import type { JobRow, JobLocationRow, JobSkillRow, Row } from '../db/rows.js';
 import { newId } from '../lib/ids.js';
 import { nowIso, SORT_DIRECTIONS, type SortDirection } from '@bktc/shared';
 
@@ -221,8 +221,17 @@ export function browseLive(options: BrowseOptions): { rows: Row<JobRow>[]; total
     params.push(options.functionSlug);
   }
   if (options.citySlug) {
-    where.push('j.city_id = (SELECT id FROM city WHERE slug = ?)');
-    params.push(options.citySlug);
+    // Matches the primary location OR any of the job's extra locations —
+    // a candidate filtering by city should see every job hiring there, not
+    // only the ones where that city happens to be the first one listed.
+    where.push(
+      `(j.city_id = (SELECT id FROM city WHERE slug = ?)
+        OR EXISTS (
+          SELECT 1 FROM job_location jl
+          WHERE jl.job_id = j.id AND jl.city_id = (SELECT id FROM city WHERE slug = ?)
+        ))`,
+    );
+    params.push(options.citySlug, options.citySlug);
   }
   if (options.minExperience !== undefined) {
     // A candidate with N years should see roles whose range includes them.
@@ -306,6 +315,34 @@ export function listSuspendableIdsForEmployer(employerProfileId: string): string
     )
     .all(employerProfileId) as { id: string }[];
   return rows.map((r) => r.id);
+}
+
+// --- Additional hiring locations -------------------------------------------
+//
+// The primary location stays on job.city_id/job.state, unchanged — this
+// table only ever holds the EXTRA locations an employer adds beyond that
+// one. Same replace-all pattern as replaceSkills below: delete then insert,
+// inside the caller's transaction.
+
+export function listAdditionalLocations(jobId: string): Row<JobLocationRow>[] {
+  return getDb()
+    .prepare('SELECT * FROM job_location WHERE job_id = ? ORDER BY sort_order')
+    .all(jobId) as Row<JobLocationRow>[];
+}
+
+export function replaceAdditionalLocations(
+  jobId: string,
+  locations: readonly { cityId: number | null; state: string }[],
+): void {
+  const db = getDb();
+  db.prepare('DELETE FROM job_location WHERE job_id = ?').run(jobId);
+  const insert = db.prepare(
+    'INSERT INTO job_location (id, job_id, city_id, state, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+  );
+  const now = nowIso();
+  locations.forEach((loc, index) => {
+    insert.run(newId(), jobId, loc.cityId, loc.state, index, now);
+  });
 }
 
 // --- Skills ---------------------------------------------------------------

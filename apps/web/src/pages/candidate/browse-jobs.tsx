@@ -167,7 +167,12 @@ function JobCard({ job }: { job: BrowseJob }) {
       </div>
 
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-500">
-        {job.cityName && <span>{job.cityName}</span>}
+        {job.cityName && (
+          <span>
+            {job.cityName}
+            {job.additionalLocations.length > 0 ? ` +${job.additionalLocations.length} more` : ''}
+          </span>
+        )}
         {job.workType && <span>{WORK_TYPE_LABELS[job.workType] ?? job.workType}</span>}
         {job.minExperience != null && job.maxExperience != null && (
           <span>

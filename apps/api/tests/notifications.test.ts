@@ -238,14 +238,28 @@ beforeAll(async () => {
   /*
    * --- CANDIDATE_SHORTLISTED ------------------------------------------------
    *
-   * Driven by the admin, not the employer, and that is the point of the row:
-   * p8 lists the employer as a recipient because BK also shortlists on their
-   * behalf. When the employer clicks it themselves they are the actor and are
-   * excluded — a one-seat employer account being told about its own click is
-   * noise, and that case is asserted separately below.
+   * p8 lists the employer as a recipient of their OWN shortlist action
+   * because the matrix also covers BK shortlisting on their behalf — that
+   * second path no longer exists (see admin-pipeline.routes.ts's and
+   * admin-coordination.routes.ts's file comments: interview coordination and
+   * every hiring decision now belong to Candidate/Employer, not Admin). So
+   * this suite drives the one path that still exists — the employer's own
+   * action — and the "actor excluded from their own notification" case is
+   * asserted separately below using the dedicated self-action test.
+   *
+   * Loaded dynamically here (not as a static top-level import) for the same
+   * reason createTestContext loads everything dynamically: these modules
+   * reach config/env.ts, which must not be parsed before DATABASE_PATH is set.
    */
-  await asAdmin(request(app).post(`/api/admin/applications/${offerApplicationId}/stage`)).send({
-    stage: 'SHORTLISTED',
+  const applicationService = await import('../src/modules/application/application.service.js');
+  const recommendationService = await import('../src/modules/admin/recommendation.service.js');
+  const candidateRepo2 = await import('../src/repositories/candidate.repo.js');
+
+  applicationService.changeStage({
+    applicationId: offerApplicationId,
+    toStage: 'SHORTLISTED',
+    role: 'EMPLOYER',
+    actorId: employerUserId,
   });
 
   // --- EMPLOYER_INTERVIEW_REQUESTED -----------------------------------------
@@ -253,21 +267,100 @@ beforeAll(async () => {
     request(app).post(`/api/employer/applications/${offerApplicationId}/request-interview`),
   ).send({ preferredSlots: [inHours(48), inHours(72)], note: 'Afternoons suit us best.' });
 
-  // --- INTERVIEW_CONFIRMED --------------------------------------------------
+  // --- INTERVIEW_CONFIRMED ---------------------------------------------------
+  // Scheduling is the employer's own action now, not BK's — see the file
+  // comment above.
   interviewScheduledAt = inHours(50);
-  await asAdmin(request(app).post(`/api/admin/applications/${offerApplicationId}/interview`)).send({
+  recommendationService.scheduleInterview({
+    applicationId: offerApplicationId,
     scheduledAt: interviewScheduledAt,
     durationMinutes: 45,
     mode: 'VIDEO',
     locationOrLink: 'https://meet.example.com/bktc-anita',
+    actorId: employerUserId,
+    role: 'EMPLOYER',
   });
 
   // --- OFFER_MADE -----------------------------------------------------------
-  await asAdmin(request(app).post(`/api/admin/applications/${offerApplicationId}/stage`)).send({
-    stage: 'INTERVIEWED',
+  applicationService.changeStage({
+    applicationId: offerApplicationId,
+    toStage: 'INTERVIEWED',
+    role: 'EMPLOYER',
+    actorId: employerUserId,
   });
-  await asAdmin(request(app).post(`/api/admin/applications/${offerApplicationId}/stage`)).send({
-    stage: 'OFFER_MADE',
+  applicationService.changeStage({
+    applicationId: offerApplicationId,
+    toStage: 'OFFER_MADE',
+    role: 'EMPLOYER',
+    actorId: employerUserId,
+  });
+
+  // --- OFFER_ACCEPTED, CANDIDATE_JOINED --------------------------------------
+  // The candidate's own decision on the offer, then the employer confirming
+  // joining — both previously admin-only, now owned by the party who
+  // actually makes each call in a real hiring process.
+  applicationService.changeStage({
+    applicationId: offerApplicationId,
+    toStage: 'OFFER_ACCEPTED',
+    role: 'CANDIDATE',
+    actorId: candidateUserId,
+  });
+  applicationService.changeStage({
+    applicationId: offerApplicationId,
+    toStage: 'JOINED',
+    role: 'EMPLOYER',
+    actorId: employerUserId,
+  });
+
+  // --- OFFER_DECLINED --------------------------------------------------------
+  // A second candidate taken all the way to an offer on the same job, so the
+  // decline path can be exercised independently of the accept path above.
+  const decliner = await request(app).post('/api/auth/register/candidate').set(CSRF_HEADER).send({
+    fullName: 'Sunil Patil',
+    email: 'sunil@example.com',
+    mobile: '9876543212',
+    password: 'correct-horse-4',
+    consentToShare: true,
+  });
+  const declinerMe = await request(app).get('/api/auth/me').set('Cookie', sessionCookie(decliner));
+  const declinerProfileId = candidateRepo2.findByUserId(declinerMe.body.id)!.id;
+  candidateRepo2.setStatus(declinerProfileId, 'APPROVED');
+  const declinerApplied = await request(app)
+    .post(`/api/candidate/jobs/${jobId}/apply`)
+    .set('Cookie', sessionCookie(decliner))
+    .set(CSRF_HEADER);
+  const declineApplicationId = declinerApplied.body.applicationId as string;
+
+  for (const stage of ['UNDER_REVIEW', 'SHORTLISTED'] as const) {
+    applicationService.changeStage({
+      applicationId: declineApplicationId,
+      toStage: stage,
+      role: 'EMPLOYER',
+      actorId: employerUserId,
+    });
+  }
+  recommendationService.scheduleInterview({
+    applicationId: declineApplicationId,
+    scheduledAt: inHours(60),
+    durationMinutes: 30,
+    mode: 'PHONE',
+    locationOrLink: '+91 98765 00000',
+    actorId: employerUserId,
+    role: 'EMPLOYER',
+  });
+  for (const stage of ['INTERVIEWED', 'OFFER_MADE'] as const) {
+    applicationService.changeStage({
+      applicationId: declineApplicationId,
+      toStage: stage,
+      role: 'EMPLOYER',
+      actorId: employerUserId,
+    });
+  }
+  applicationService.changeStage({
+    applicationId: declineApplicationId,
+    toStage: 'OFFER_DECLINED',
+    role: 'CANDIDATE',
+    actorId: declinerMe.body.id,
   });
 
   // --- CANDIDATE_RECOMMENDED ------------------------------------------------
@@ -277,9 +370,17 @@ beforeAll(async () => {
   recommendedApplicationId = recommended.body.applicationId as string;
 
   // --- CANDIDATE_NOT_SELECTED -----------------------------------------------
-  await asAdmin(request(app).post(`/api/admin/applications/${recommendedApplicationId}/stage`)).send(
-    { stage: 'NOT_SELECTED', note: 'Not the right fit for this brief.' },
-  );
+  // Still an admin recommendation turned down by the employer — admin's
+  // recommend action is unrelated to hiring-stage decisions and untouched by
+  // this product change, but the actual rejection is the employer's own, as
+  // it already was before.
+  applicationService.changeStage({
+    applicationId: recommendedApplicationId,
+    toStage: 'NOT_SELECTED',
+    role: 'EMPLOYER',
+    actorId: employerUserId,
+    note: 'Not the right fit for this brief.',
+  });
 
   // Referenced so the linter sees the seeded ids as used by the suite.
   void jobRepo;
@@ -290,6 +391,21 @@ afterAll(() => ctx.cleanup());
 // ---------------------------------------------------------------------------
 // The matrix, row by row
 // ---------------------------------------------------------------------------
+
+/**
+ * Rows whose full declared recipient set is no longer reachable by ANY
+ * journey, now that interview coordination and hiring decisions moved from
+ * Admin to Candidate/Employer.
+ *
+ * CANDIDATE_SHORTLISTED's EMPLOYER recipient existed for the case where BK
+ * shortlisted on the employer's behalf (a third-party actor, so the employer
+ * was not excluded). That path is gone — the employer is now always the one
+ * who shortlists, so excludeUserId always strips them. The matrix row is
+ * left exactly as transcribed from the proposal (this file's own header
+ * comment: transcribed, not paraphrased) rather than silently edited to match
+ * the new reality; this is reported as a known consequence instead.
+ */
+const PARTIALLY_UNREACHABLE_NOW: ReadonlySet<NotificationEvent> = new Set(['CANDIDATE_SHORTLISTED']);
 
 describe('the p8 notification matrix', () => {
   it.each(NOTIFICATION_MATRIX)(
@@ -306,7 +422,11 @@ describe('the p8 notification matrix', () => {
       expect(delivered.length, `${event} was never raised by any journey`).toBeGreaterThan(0);
 
       const gotRoles = [...new Set(delivered.map((d) => d.role))].sort();
-      expect(gotRoles).toEqual([...recipients].sort());
+      if (PARTIALLY_UNREACHABLE_NOW.has(event)) {
+        for (const role of gotRoles) expect(recipients).toContain(role);
+      } else {
+        expect(gotRoles).toEqual([...recipients].sort());
+      }
     },
   );
 
@@ -411,8 +531,11 @@ describe('notification content', () => {
   });
 
   it('gives both parties the same interview time, in IST', () => {
-    const delivered = deliveredOf('INTERVIEW_CONFIRMED');
     const when = formatDateTime(interviewScheduledAt);
+    // Scoped to this specific interview's time — a second application in the
+    // same journey (the decline-path fixture) also schedules one, at a
+    // different time, and would otherwise double-count here.
+    const delivered = deliveredOf('INTERVIEW_CONFIRMED').filter((d) => d.body?.includes(when));
 
     expect(when).toContain('IST');
     expect(delivered).toHaveLength(2);

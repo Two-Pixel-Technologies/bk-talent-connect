@@ -29,8 +29,11 @@ import {
   useEmployerInterview,
   useRequestInterview,
   useConfirmEmployerInterview,
+  useScheduleEmployerInterview,
+  useCancelEmployerInterview,
+  useCompleteEmployerInterview,
 } from '../../features/employer/use-employer.js';
-import { Alert, Badge, Button, Card, EmptyState } from '../../components/ui/index.js';
+import { Alert, Badge, Button, Card, EmptyState, Field, Select } from '../../components/ui/index.js';
 import { QueryState } from '../../components/query-state.js';
 import { MutationFeedback } from '../../components/mutation-feedback.js';
 import { EMPLOYER_CARD } from './employer-style.js';
@@ -84,6 +87,7 @@ const STAGE_ACTIONS: Record<string, { label: string; variant: 'primary' | 'secon
   SHORTLISTED: { label: 'Shortlist', variant: 'primary' },
   NOT_SELECTED: { label: 'Not suitable', variant: 'danger' },
   OFFER_MADE: { label: 'Make an offer', variant: 'primary' },
+  JOINED: { label: 'Mark as joined', variant: 'primary' },
 };
 
 const BUCKET_META: Record<EmployerBucket, { label: string; dot: string }> = {
@@ -147,7 +151,7 @@ export function ApplicantsPage() {
           Applicants{data ? ` · ${data.job.title}` : ''}
         </h1>
         <p className="mt-1.5 text-sm text-slate-600">
-          Shortlist anyone you want to meet and our team arranges the interview.
+          Shortlist, interview and decide. The whole process is yours to run.
         </p>
       </div>
 
@@ -258,8 +262,14 @@ function ApplicantCard({
         return ['SHORTLISTED', 'NOT_SELECTED'];
       case 'SHORTLISTED':
         return ['NOT_SELECTED'];
+      // INTERVIEW_SCHEDULED -> NOT_SELECTED is legal too (candidate failed to
+      // confirm, or you decide not to proceed before the interview happens),
+      // but that action lives in the interview panel below, next to the
+      // booking it is a decision about, not duplicated here.
       case 'INTERVIEWED':
         return ['OFFER_MADE', 'NOT_SELECTED'];
+      case 'OFFER_ACCEPTED':
+        return ['JOINED'];
       default:
         return [];
     }
@@ -363,7 +373,18 @@ function ApplicantCard({
       )}
 
       {INTERVIEW_RELEVANT.includes(applicant.stage) && (
-        <InterviewPanel applicationId={applicant.id} candidateName={c.fullName} />
+        <InterviewPanel
+          applicationId={applicant.id}
+          candidateName={c.fullName}
+          stage={applicant.stage}
+          onNotSelected={() => {
+            if (
+              window.confirm(`Mark ${c.fullName} as not suitable? They are notified, and this is hard to reverse.`)
+            ) {
+              onStage('NOT_SELECTED');
+            }
+          }}
+        />
       )}
 
       <div className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3">
@@ -386,8 +407,14 @@ function ApplicantCard({
                 if (
                   next === 'NOT_SELECTED' &&
                   !window.confirm(
-                    `Tell our team ${c.fullName} is not suitable? They are notified, and this is hard to reverse.`,
+                    `Mark ${c.fullName} as not suitable? They are notified, and this is hard to reverse.`,
                   )
+                ) {
+                  return;
+                }
+                if (
+                  next === 'JOINED' &&
+                  !window.confirm(`Confirm ${c.fullName} has joined? This closes the application.`)
                 ) {
                   return;
                 }
@@ -419,30 +446,43 @@ const MODE_LABEL: Record<string, string> = {
 /**
  * The employer's interview panel.
  *
- * They can ask; they cannot book. That is the managed model, and the server
- * enforces it — an employer posting INTERVIEW_SCHEDULED directly gets a 403.
- * The copy explains why rather than leaving them looking for a button that
- * does not exist.
+ * Scheduling, cancelling and completing are the employer's own actions now —
+ * previously admin-only (see stages.ts). "Ask us to arrange" is kept as a
+ * softer alternative: send preferred slots without committing to one yet.
  */
 function InterviewPanel({
   applicationId,
   candidateName,
+  stage,
+  onNotSelected,
 }: {
   applicationId: string;
   candidateName: string;
+  stage: string;
+  onNotSelected: () => void;
 }) {
   const { data, isPending } = useEmployerInterview(applicationId, true);
   const requestInterview = useRequestInterview();
   const confirm = useConfirmEmployerInterview();
+  const schedule = useScheduleEmployerInterview();
+  const cancel = useCancelEmployerInterview();
+  const complete = useCompleteEmployerInterview();
   const [asking, setAsking] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
   const [slots, setSlots] = useState<string[]>(['']);
   const [note, setNote] = useState('');
+  const [when, setWhen] = useState('');
+  const [duration, setDuration] = useState(45);
+  const [mode, setMode] = useState<'PHONE' | 'VIDEO' | 'ONSITE'>('VIDEO');
+  const [locationOrLink, setLocationOrLink] = useState('');
+  const [instructions, setInstructions] = useState('');
 
   const error = requestInterview.error instanceof ApiError ? requestInterview.error : null;
+  const scheduleError = schedule.error instanceof ApiError ? schedule.error : null;
 
   // `if (isPending) return null` also swallowed the error state, so a failed
-  // interview lookup removed the "Ask us to arrange an interview" button from
-  // the page entirely with no explanation.
+  // interview lookup removed the "Schedule" button from the page entirely
+  // with no explanation.
   if (isPending) return null;
   if (!data) {
     return (
@@ -453,6 +493,21 @@ function InterviewPanel({
   }
 
   const interview = data.interview;
+
+  function submitSchedule() {
+    if (!when || !locationOrLink.trim()) return;
+    schedule.mutate(
+      {
+        applicationId,
+        scheduledAt: new Date(when).toISOString(),
+        durationMinutes: duration,
+        mode,
+        locationOrLink: locationOrLink.trim(),
+        ...(instructions.trim() ? { instructions: instructions.trim() } : {}),
+      },
+      { onSuccess: () => setScheduling(false) },
+    );
+  }
 
   if (interview) {
     return (
@@ -468,7 +523,7 @@ function InterviewPanel({
           </p>
           <p className="mt-1 text-xs break-words text-brand-800">{interview.locationOrLink}</p>
         </div>
-        <div className="mt-2">
+        <div className="mt-2 flex flex-wrap gap-2">
           {interview.youConfirmedAt ? (
             <Badge tone="green">You confirmed</Badge>
           ) : (
@@ -480,6 +535,33 @@ function InterviewPanel({
               Confirm
             </Button>
           )}
+          {stage === 'INTERVIEW_SCHEDULED' && (
+            <>
+              <Button
+                variant="secondary"
+                className="px-2 text-xs"
+                loading={complete.isPending}
+                onClick={() => complete.mutate(interview.id)}
+              >
+                Mark as held
+              </Button>
+              <Button
+                variant="ghost"
+                className="px-2 text-xs"
+                loading={cancel.isPending}
+                onClick={() => {
+                  if (window.confirm(`Cancel the interview with ${candidateName}? They will be told.`)) {
+                    cancel.mutate(interview.id);
+                  }
+                }}
+              >
+                Cancel interview
+              </Button>
+              <Button variant="danger" className="px-2 text-xs" onClick={onNotSelected}>
+                Not suitable
+              </Button>
+            </>
+          )}
         </div>
         {/* The candidate's identical button got this; the employer's was
             missed. A failed confirm looked exactly like a successful one. */}
@@ -488,35 +570,103 @@ function InterviewPanel({
           isSuccess={confirm.isSuccess}
           successMessage="Confirmed. We have told the candidate."
         />
+        <MutationFeedback
+          error={cancel.error}
+          isSuccess={cancel.isSuccess}
+          successMessage="Cancelled. We have told the candidate."
+        />
+        <MutationFeedback
+          error={complete.error}
+          isSuccess={complete.isSuccess}
+          successMessage="Marked as held."
+        />
         <p className="mt-2 text-xs text-brand-700">
           {interview.otherPartyConfirmed
             ? `${candidateName} has confirmed.`
-            : `We are still confirming with ${candidateName}.`}{' '}
-          To move it, tell us and we&rsquo;ll rearrange with both sides.
+            : `${candidateName} has not confirmed yet.`}
         </p>
+      </div>
+    );
+  }
+
+  if (stage === 'INTERVIEWED') {
+    return (
+      <div className="mt-3">
+        <Alert tone="info">Interview held. Make an offer when you are ready, or mark not suitable.</Alert>
       </div>
     );
   }
 
   if (data.hasOpenRequest) {
     return (
-      <div className="mt-3">
-        <Alert tone="info">We have your request and are finding a slot that works for both of you.</Alert>
+      <div className="mt-3 space-y-2">
+        <Alert tone="info">
+          You asked for preferred slots. Schedule it directly when you have picked one.
+        </Alert>
+        <Button variant="secondary" className="w-full px-2 text-xs" onClick={() => setScheduling(true)}>
+          Schedule the interview
+        </Button>
+        {scheduling && (
+          <ScheduleForm
+            candidateName={candidateName}
+            when={when}
+            setWhen={setWhen}
+            duration={duration}
+            setDuration={setDuration}
+            mode={mode}
+            setMode={setMode}
+            locationOrLink={locationOrLink}
+            setLocationOrLink={setLocationOrLink}
+            instructions={instructions}
+            setInstructions={setInstructions}
+            error={scheduleError}
+            loading={schedule.isPending}
+            onSubmit={submitSchedule}
+            onCancel={() => setScheduling(false)}
+          />
+        )}
       </div>
     );
   }
 
   return (
-    <div className="mt-3">
-      {!asking ? (
-        <Button variant="secondary" className="w-full px-2 text-xs" onClick={() => setAsking(true)}>
-          Ask us to arrange an interview
-        </Button>
-      ) : (
+    <div className="mt-3 space-y-2">
+      {!scheduling && !asking && (
+        <>
+          <Button variant="primary" className="w-full px-2 text-xs" onClick={() => setScheduling(true)}>
+            Schedule interview
+          </Button>
+          <Button variant="ghost" className="w-full px-2 text-xs" onClick={() => setAsking(true)}>
+            Or ask for preferred slots first
+          </Button>
+        </>
+      )}
+
+      {scheduling && (
+        <ScheduleForm
+          candidateName={candidateName}
+          when={when}
+          setWhen={setWhen}
+          duration={duration}
+          setDuration={setDuration}
+          mode={mode}
+          setMode={setMode}
+          locationOrLink={locationOrLink}
+          setLocationOrLink={setLocationOrLink}
+          instructions={instructions}
+          setInstructions={setInstructions}
+          error={scheduleError}
+          loading={schedule.isPending}
+          onSubmit={submitSchedule}
+          onCancel={() => setScheduling(false)}
+        />
+      )}
+
+      {asking && (
         <div className="rounded-lg border border-slate-200 p-3">
           <p className="text-xs font-medium text-slate-800">When would suit you for {candidateName}?</p>
           <p className="mt-0.5 text-xs text-slate-500">
-            Optional. We confirm the final time with both of you.
+            Optional. Pick an exact time and schedule it directly instead if you already know one.
           </p>
 
           {error && (
@@ -547,8 +697,8 @@ function InterviewPanel({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            placeholder="Anything we should tell them?"
-            aria-label="Note for our team"
+            placeholder="Anything you want to tell them?"
+            aria-label="Note for the candidate"
             className="mt-2 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
           />
 
@@ -577,6 +727,112 @@ function InterviewPanel({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ScheduleForm({
+  candidateName,
+  when,
+  setWhen,
+  duration,
+  setDuration,
+  mode,
+  setMode,
+  locationOrLink,
+  setLocationOrLink,
+  instructions,
+  setInstructions,
+  error,
+  loading,
+  onSubmit,
+  onCancel,
+}: {
+  candidateName: string;
+  when: string;
+  setWhen: (v: string) => void;
+  duration: number;
+  setDuration: (v: number) => void;
+  mode: 'PHONE' | 'VIDEO' | 'ONSITE';
+  setMode: (v: 'PHONE' | 'VIDEO' | 'ONSITE') => void;
+  locationOrLink: string;
+  setLocationOrLink: (v: string) => void;
+  instructions: string;
+  setInstructions: (v: string) => void;
+  error: ApiError | null;
+  loading: boolean;
+  onSubmit: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 p-3">
+      <p className="text-xs font-medium text-slate-800">Schedule the interview with {candidateName}</p>
+
+      {error && (
+        <div className="mt-2">
+          <Alert tone="error">{error.message}</Alert>
+        </div>
+      )}
+
+      <div className="mt-2 space-y-2">
+        <input
+          type="datetime-local"
+          value={when}
+          aria-label="Date and time"
+          onChange={(e) => setWhen(e.target.value)}
+          className="min-h-10 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Duration (minutes)" htmlFor="interview-duration">
+            <input
+              id="interview-duration"
+              type="number"
+              min={10}
+              max={480}
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+              className="min-h-10 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+            />
+          </Field>
+          <Field label="Mode" htmlFor="interview-mode">
+            <Select
+              id="interview-mode"
+              value={mode}
+              onChange={(e) => setMode(e.target.value as 'PHONE' | 'VIDEO' | 'ONSITE')}
+            >
+              {Object.entries(MODE_LABEL).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        <input
+          value={locationOrLink}
+          onChange={(e) => setLocationOrLink(e.target.value)}
+          placeholder="Address, or the meeting link"
+          aria-label="Address or meeting link"
+          className="min-h-10 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+        />
+        <textarea
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+          rows={2}
+          placeholder="Anything the candidate should know (optional)"
+          aria-label="Instructions for the candidate"
+          className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-sm"
+        />
+      </div>
+
+      <div className="mt-2 flex flex-col gap-2">
+        <Button className="px-2 text-xs" loading={loading} onClick={onSubmit}>
+          Confirm the interview
+        </Button>
+        <Button variant="secondary" className="px-2 text-xs" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
     </div>
   );
 }
