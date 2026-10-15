@@ -482,6 +482,42 @@ export function interviewConfirmed(input: {
 }
 
 /**
+ * The 24-hour-before reminder — p8's one row with no Portal column (see
+ * NOTIFICATION_MATRIX's INTERVIEW_REMINDER entry), so notify() writes no
+ * bell row here, only the email/WhatsApp dispatch.
+ *
+ * Called only from the sweep in lib/interview-reminder-sweep.ts, once per
+ * interview, on an interview row already atomically claimed via
+ * interview.repo.ts's claimDueReminders — this function itself does not
+ * re-check reminder_sent_at, so it must never be called outside that path.
+ */
+export function interviewReminder(input: {
+  readonly applicationId: string;
+  readonly interviewId: string;
+  readonly scheduledAt: string;
+}): void {
+  const p = partiesFor(input.applicationId);
+  if (!p) return;
+
+  const when = formatDateTime(input.scheduledAt);
+
+  notify({
+    event: 'INTERVIEW_REMINDER',
+    parties: { CANDIDATE: p.candidateUserId, EMPLOYER: p.employerUserId },
+    title: 'Interview tomorrow',
+    body: `${p.jobTitle} — ${when}. Full details are on your interview page.`,
+    perRole: {
+      EMPLOYER: {
+        title: 'Interview tomorrow',
+        body: `${p.candidateName} for ${p.jobTitle} — ${when}.`,
+      },
+    },
+    entityType: 'INTERVIEW',
+    entityId: input.interviewId,
+  });
+}
+
+/**
  * The interview is off.
  *
  * Uses the same INTERVIEW_CONFIRMED row of the matrix, because it is the same

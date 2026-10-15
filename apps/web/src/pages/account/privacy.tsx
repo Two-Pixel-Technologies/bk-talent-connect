@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { formatDateTime } from '@bktc/shared';
 import { api, ApiError } from '../../lib/api-client.js';
 import { useAuth } from '../../features/auth/auth-context.js';
@@ -184,6 +185,18 @@ export function PrivacyPage() {
           )}
         </QueryState>
       </Card>
+
+      <p className="text-sm text-slate-500">
+        See the full{' '}
+        <Link to="/privacy-policy" className="font-medium text-brand-600 hover:underline">
+          Privacy Policy
+        </Link>{' '}
+        and{' '}
+        <Link to="/terms-of-use" className="font-medium text-brand-600 hover:underline">
+          Terms of Use
+        </Link>
+        .
+      </p>
     </div>
   );
 }

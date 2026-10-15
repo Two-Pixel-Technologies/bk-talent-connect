@@ -77,7 +77,19 @@ export function RegisterEmployerPage() {
         </Button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-slate-600">
+      <p className="mt-4 text-center text-xs text-slate-500">
+        By registering, you agree to our{' '}
+        <Link to="/terms-of-use" className="font-medium text-brand-600 hover:underline">
+          Terms of Use
+        </Link>{' '}
+        and{' '}
+        <Link to="/privacy-policy" className="font-medium text-brand-600 hover:underline">
+          Privacy Policy
+        </Link>
+        .
+      </p>
+
+      <p className="mt-4 text-center text-sm text-slate-600">
         Already registered?{' '}
         <Link to="/login" className="font-medium text-brand-600 hover:underline">
           Sign in

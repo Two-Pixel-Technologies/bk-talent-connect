@@ -122,6 +122,30 @@ export function listUpcoming(limit = 50): Row<InterviewRow>[] {
     .all(nowIso(), limit) as Row<InterviewRow>[];
 }
 
+/**
+ * Atomically claims every SCHEDULED interview whose scheduled_at falls in
+ * [windowStart, windowEnd) and has not already been reminded, in one UPDATE
+ * ... RETURNING — not a SELECT followed by an UPDATE. Two overlapping sweep
+ * runs (e.g. a slow run still finishing when the next interval fires) would
+ * otherwise both see the same unreminded row and both send; the single
+ * atomic statement means only the run that actually flips reminder_sent_at
+ * from NULL gets the row back, so each interview is reminded exactly once
+ * regardless of how many sweeps overlap it.
+ */
+export function claimDueReminders(windowStart: string, windowEnd: string): Row<InterviewRow>[] {
+  return getDb()
+    .prepare(
+      `UPDATE interview
+       SET reminder_sent_at = ?
+       WHERE status = 'SCHEDULED'
+         AND reminder_sent_at IS NULL
+         AND scheduled_at >= ?
+         AND scheduled_at < ?
+       RETURNING *`,
+    )
+    .all(nowIso(), windowStart, windowEnd) as Row<InterviewRow>[];
+}
+
 // --- Interview requests ---------------------------------------------------
 
 export function createRequest(input: {

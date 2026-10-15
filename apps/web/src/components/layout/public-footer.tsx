@@ -5,7 +5,7 @@ import { publicFooter } from '../../content/site.js';
 export function PublicFooter() {
   return (
     <footer className="bg-pub-navy text-white/80">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr]">
+      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
           <div className="flex items-center gap-2.5">
             <span className="flex size-9 items-center justify-center rounded-lg bg-white/10 font-heading text-sm font-bold text-white">

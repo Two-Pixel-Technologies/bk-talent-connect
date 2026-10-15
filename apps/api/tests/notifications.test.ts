@@ -386,7 +386,15 @@ beforeAll(async () => {
   void jobRepo;
 });
 
-afterAll(() => ctx.cleanup());
+afterAll(async () => {
+  // Every notify() call this file triggered — not just the ones individual
+  // tests explicitly awaited — defers its email/WhatsApp dispatch via
+  // setImmediate (see lib/notify.ts). Closing the database before those
+  // settle would make a stray late write throw against a closed connection.
+  const { notificationDispatchSettled } = await import('../src/lib/notify.js');
+  await notificationDispatchSettled();
+  ctx.cleanup();
+});
 
 // ---------------------------------------------------------------------------
 // The matrix, row by row
@@ -407,8 +415,18 @@ afterAll(() => ctx.cleanup());
  */
 const PARTIALLY_UNREACHABLE_NOW: ReadonlySet<NotificationEvent> = new Set(['CANDIDATE_SHORTLISTED']);
 
+/**
+ * INTERVIEW_REMINDER is the one matrix row with no Portal channel at all
+ * (see NOTIFICATION_MATRIX) — notify() deliberately writes zero rows to the
+ * `notification` table for it, so `deliveredOf()` (which only reads that
+ * table) can never see it delivered, by design, not by a journey gap. It
+ * gets its own describe block below instead, asserting against
+ * `notification_delivery` (the email/WhatsApp audit trail).
+ */
+const PORTAL_LESS: ReadonlySet<NotificationEvent> = new Set(['INTERVIEW_REMINDER']);
+
 describe('the p8 notification matrix', () => {
-  it.each(NOTIFICATION_MATRIX)(
+  it.each(NOTIFICATION_MATRIX.filter((spec) => !PORTAL_LESS.has(spec.event)))(
     '$event reaches exactly $recipients',
     ({ event, recipients }) => {
       const delivered = deliveredOf(event);
@@ -489,6 +507,212 @@ describe('the p8 notification matrix', () => {
     // previous plan got wrong, so it is asserted on its own.
     const roles = deliveredOf('APPLICATION_SUBMITTED').map((d) => d.role);
     expect(roles).not.toContain('EMPLOYER');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Email / WhatsApp channel dispatch (lib/channels.ts, lib/notify.ts)
+// ---------------------------------------------------------------------------
+
+describe('email/WhatsApp channel dispatch', () => {
+  it('dispatches on every channel the event declares, skipping gracefully when a recipient has no mobile number', async () => {
+    const { notificationDispatchSettled } = await import('../src/lib/notify.js');
+    const deliveryRepo = await import('../src/repositories/notification-delivery.repo.js');
+    await notificationDispatchSettled();
+
+    // CANDIDATE_PROFILE_APPROVED: Email + WhatsApp + Portal, candidate only —
+    // the candidate has both an email and a mobile on file, so both channels
+    // should have actually attempted a send (through the logging transport).
+    const approved = deliveryRepo
+      .listForUser(candidateUserId)
+      .filter((d) => d.event === 'CANDIDATE_PROFILE_APPROVED');
+    expect(approved.map((d) => d.channel).sort()).toEqual(['EMAIL', 'WHATSAPP']);
+    expect(approved.every((d) => d.status === 'SENT')).toBe(true);
+
+    // APPLICATION_SUBMITTED reaches ADMIN too, and no admin has a mobile
+    // number anywhere in this product — that must be a SKIPPED delivery, not
+    // a FAILED one; skipping a channel that genuinely does not apply is not
+    // an error.
+    const adminWhatsapp = deliveryRepo
+      .listForUser(adminId)
+      .find((d) => d.event === 'APPLICATION_SUBMITTED' && d.channel === 'WHATSAPP');
+    expect(adminWhatsapp?.status).toBe('SKIPPED');
+
+    // JOB_SUBMITTED is Email + Portal only in the matrix — no WhatsApp
+    // dispatch should be attempted for it at all, SKIPPED or otherwise.
+    const jobSubmittedWhatsapp = deliveryRepo
+      .listForUser(employerUserId)
+      .filter((d) => d.event === 'JOB_SUBMITTED' && d.channel === 'WHATSAPP');
+    expect(jobSubmittedWhatsapp).toHaveLength(0);
+  });
+
+  it('records a FAILED delivery, not a thrown error, when the transport rejects', async () => {
+    const channels = await import('../src/lib/channels.js');
+    const notifyLib = await import('../src/lib/notify.js');
+    const deliveryRepo = await import('../src/repositories/notification-delivery.repo.js');
+
+    channels.setTransportsForTesting({
+      email: {
+        send: async () => {
+          throw new Error('provider unreachable');
+        },
+      },
+    });
+
+    // notify() itself must never throw because a downstream channel failed —
+    // the portal row (and the fact being recorded in application state) must
+    // never depend on email/WhatsApp succeeding.
+    expect(() =>
+      notifyLib.notify({
+        event: 'CANDIDATE_SHORTLISTED',
+        parties: { CANDIDATE: candidateUserId, EMPLOYER: employerUserId },
+        title: 'Channel-failure-path test',
+        entityType: 'APPLICATION',
+        entityId: 'channel-failure-path-test',
+      }),
+    ).not.toThrow();
+
+    await notifyLib.notificationDispatchSettled();
+
+    const failed = deliveryRepo
+      .listForUser(candidateUserId)
+      .find((d) => d.event === 'CANDIDATE_SHORTLISTED' && d.channel === 'EMAIL');
+    expect(failed?.status).toBe('FAILED');
+    expect(failed?.detail).toContain('provider unreachable');
+
+    channels.setTransportsForTesting(); // restore the logging default
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The 24-hour-before interview reminder (lib/interview-reminder-sweep.ts)
+// ---------------------------------------------------------------------------
+
+describe('the 24-hour interview reminder', () => {
+  it('reminds once per interview on Email + WhatsApp only (no portal row), and is idempotent across repeated sweeps', async () => {
+    const jobRepo = await import('../src/repositories/job.repo.js');
+    const employerRepo = await import('../src/repositories/employer.repo.js');
+    const recommendationService = await import('../src/modules/admin/recommendation.service.js');
+    const { runInterviewReminderSweep } = await import('../src/lib/interview-reminder-sweep.js');
+    const { notificationDispatchSettled } = await import('../src/lib/notify.js');
+    const deliveryRepo = await import('../src/repositories/notification-delivery.repo.js');
+    const { getDb } = await import('../src/db/client.js');
+
+    const employerProfileId = employerRepo.findByUserId(employerUserId)!.id;
+    const jobId = jobRepo.create(employerProfileId, 'Instrumentation Engineer');
+    jobRepo.setStatus(jobId, 'APPROVED', ['DRAFT'], { publishedAt: new Date().toISOString() });
+
+    const applied = await request(app)
+      .post(`/api/candidate/jobs/${jobId}/apply`)
+      .set('Cookie', candidateCookie)
+      .set(CSRF_HEADER);
+    const applicationId = applied.body.applicationId as string;
+
+    for (const stage of ['UNDER_REVIEW', 'SHORTLISTED']) {
+      const res = await request(app)
+        .post(`/api/employer/applications/${applicationId}/stage`)
+        .set('Cookie', employerCookie)
+        .set(CSRF_HEADER)
+        .send({ stage });
+      expect(res.status).toBe(200);
+    }
+
+    // Inside the 24-hour window — must be reminded by the next sweep.
+    recommendationService.scheduleInterview({
+      applicationId,
+      scheduledAt: inHours(20),
+      durationMinutes: 30,
+      mode: 'VIDEO',
+      locationOrLink: 'https://meet.example.com/reminder-test',
+      actorId: employerUserId,
+      role: 'EMPLOYER',
+    });
+    const interview = getDb()
+      .prepare("SELECT id FROM interview WHERE application_id = ? AND status = 'SCHEDULED'")
+      .get(applicationId) as { id: string };
+
+    const first = runInterviewReminderSweep();
+    expect(first.remindedCount).toBeGreaterThanOrEqual(1);
+    await notificationDispatchSettled();
+
+    // No portal row — the one matrix row with no Portal channel.
+    const portalRows = getDb()
+      .prepare("SELECT 1 FROM notification WHERE event = 'INTERVIEW_REMINDER' AND entity_id = ?")
+      .all(interview.id);
+    expect(portalRows).toHaveLength(0);
+
+    const candidateDeliveries = deliveryRepo
+      .listForUser(candidateUserId)
+      .filter((d) => d.event === 'INTERVIEW_REMINDER');
+    expect(candidateDeliveries.map((d) => d.channel).sort()).toEqual(['EMAIL', 'WHATSAPP']);
+    expect(candidateDeliveries.every((d) => d.status === 'SENT')).toBe(true);
+
+    const employerDeliveries = deliveryRepo
+      .listForUser(employerUserId)
+      .filter((d) => d.event === 'INTERVIEW_REMINDER');
+    expect(employerDeliveries.map((d) => d.channel).sort()).toEqual(['EMAIL', 'WHATSAPP']);
+
+    // Idempotency: reminder_sent_at is now set, so a second sweep — even one
+    // covering the exact same window — must claim nothing more for this
+    // interview. This is the duplicate-prevention guarantee: a candidate
+    // must never get two reminder messages for the same interview no matter
+    // how many times the interval fires before the interview happens.
+    const before = deliveryRepo.listForUser(candidateUserId).filter((d) => d.event === 'INTERVIEW_REMINDER').length;
+    runInterviewReminderSweep();
+    await notificationDispatchSettled();
+    const after = deliveryRepo.listForUser(candidateUserId).filter((d) => d.event === 'INTERVIEW_REMINDER').length;
+    expect(after).toBe(before);
+
+    const row = getDb()
+      .prepare('SELECT reminder_sent_at FROM interview WHERE id = ?')
+      .get(interview.id) as { reminder_sent_at: string | null };
+    expect(row.reminder_sent_at).not.toBeNull();
+  });
+
+  it('does not remind an interview more than 24 hours out', async () => {
+    const jobRepo = await import('../src/repositories/job.repo.js');
+    const employerRepo = await import('../src/repositories/employer.repo.js');
+    const recommendationService = await import('../src/modules/admin/recommendation.service.js');
+    const { runInterviewReminderSweep } = await import('../src/lib/interview-reminder-sweep.js');
+    const { getDb } = await import('../src/db/client.js');
+
+    const employerProfileId = employerRepo.findByUserId(employerUserId)!.id;
+    const jobId = jobRepo.create(employerProfileId, 'Quality Engineer — Future Interview');
+    jobRepo.setStatus(jobId, 'APPROVED', ['DRAFT'], { publishedAt: new Date().toISOString() });
+
+    const applied = await request(app)
+      .post(`/api/candidate/jobs/${jobId}/apply`)
+      .set('Cookie', candidateCookie)
+      .set(CSRF_HEADER);
+    const applicationId = applied.body.applicationId as string;
+
+    for (const stage of ['UNDER_REVIEW', 'SHORTLISTED']) {
+      await request(app)
+        .post(`/api/employer/applications/${applicationId}/stage`)
+        .set('Cookie', employerCookie)
+        .set(CSRF_HEADER)
+        .send({ stage });
+    }
+
+    recommendationService.scheduleInterview({
+      applicationId,
+      scheduledAt: inHours(70), // well outside the 24-hour window
+      durationMinutes: 30,
+      mode: 'VIDEO',
+      locationOrLink: 'https://meet.example.com/far-out-test',
+      actorId: employerUserId,
+      role: 'EMPLOYER',
+    });
+    const interview = getDb()
+      .prepare("SELECT id FROM interview WHERE application_id = ? AND status = 'SCHEDULED'")
+      .get(applicationId) as { id: string };
+
+    runInterviewReminderSweep();
+
+    const row = getDb()
+      .prepare('SELECT reminder_sent_at FROM interview WHERE id = ?')
+      .get(interview.id) as { reminder_sent_at: string | null };
+    expect(row.reminder_sent_at).toBeNull();
   });
 });
 

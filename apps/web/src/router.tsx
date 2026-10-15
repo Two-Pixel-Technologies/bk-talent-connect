@@ -16,6 +16,8 @@ import { ForCandidatesPage } from './pages/public/for-candidates.js';
 import { ForEmployersPage } from './pages/public/for-employers.js';
 import { AboutPage } from './pages/public/about.js';
 import { ContactPage } from './pages/public/contact.js';
+import { PrivacyPolicyPage } from './pages/public/privacy-policy.js';
+import { TermsOfUsePage } from './pages/public/terms-of-use.js';
 import { SystemStatusPage } from './pages/system-status.js';
 import { BuildStatusPage } from './pages/build-status.js';
 import { DesignLabPage } from './design-lab/candidate/DesignLabPage.js';
@@ -93,6 +95,8 @@ export const router = createBrowserRouter([
           { path: 'for-employers', element: <ForEmployersPage /> },
           { path: 'about', element: <AboutPage /> },
           { path: 'contact', element: <ContactPage /> },
+          { path: 'privacy-policy', element: <PrivacyPolicyPage /> },
+          { path: 'terms-of-use', element: <TermsOfUsePage /> },
         ],
       },
 

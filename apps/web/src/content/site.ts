@@ -505,6 +505,13 @@ export const publicFooter = {
         { label: 'Sign in', href: '/login' },
       ],
     },
+    {
+      title: 'Legal',
+      links: [
+        { label: 'Privacy Policy', href: '/privacy-policy' },
+        { label: 'Terms of Use', href: '/terms-of-use' },
+      ],
+    },
   ],
   social: [
     { label: 'LinkedIn', icon: 'linkedin' as PublicSocialIconKey, href: 'https://www.linkedin.com/company/bk-talent-connect' },
