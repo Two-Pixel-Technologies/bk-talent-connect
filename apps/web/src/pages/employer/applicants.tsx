@@ -82,14 +82,6 @@ type ApplicantsResponse = Page<Applicant> & {
   job: { id: string; title: string; cityName: string | null };
 };
 
-const STAGE_ACTIONS: Record<string, { label: string; variant: 'primary' | 'secondary' | 'danger' }> = {
-  UNDER_REVIEW: { label: 'Start reviewing', variant: 'secondary' },
-  SHORTLISTED: { label: 'Shortlist', variant: 'primary' },
-  NOT_SELECTED: { label: 'Not suitable', variant: 'danger' },
-  OFFER_MADE: { label: 'Make an offer', variant: 'primary' },
-  JOINED: { label: 'Mark as joined', variant: 'primary' },
-};
-
 const BUCKET_META: Record<EmployerBucket, { label: string; dot: string }> = {
   NEW: { label: 'New', dot: 'bg-brand-500' },
   REVIEWING: { label: 'Reviewing', dot: 'bg-amber-500' },
@@ -254,22 +246,43 @@ function ApplicantCard({
 }) {
   const c = applicant.candidate;
 
-  const nextStages = (() => {
+  /*
+   * Each entry carries its own label/variant rather than being looked up by
+   * target stage alone — UNDER_REVIEW means something different as the
+   * target of "Start reviewing" (APPLIED -> UNDER_REVIEW) than as the target
+   * of a correction (SHORTLISTED -> UNDER_REVIEW), and the button needs to
+   * say which one this is.
+   */
+  type StageAction = { to: string; label: string; variant: 'primary' | 'secondary' | 'danger' | 'ghost' };
+  const nextStages: StageAction[] = (() => {
     switch (applicant.stage) {
       case 'APPLIED':
-        return ['UNDER_REVIEW', 'NOT_SELECTED'];
+        return [
+          { to: 'UNDER_REVIEW', label: 'Start reviewing', variant: 'secondary' },
+          { to: 'NOT_SELECTED', label: 'Not suitable', variant: 'danger' },
+        ];
       case 'UNDER_REVIEW':
-        return ['SHORTLISTED', 'NOT_SELECTED'];
+        return [
+          { to: 'SHORTLISTED', label: 'Shortlist', variant: 'primary' },
+          { to: 'APPLIED', label: 'Move back to Applied', variant: 'ghost' },
+          { to: 'NOT_SELECTED', label: 'Not suitable', variant: 'danger' },
+        ];
       case 'SHORTLISTED':
-        return ['NOT_SELECTED'];
-      // INTERVIEW_SCHEDULED -> NOT_SELECTED is legal too (candidate failed to
-      // confirm, or you decide not to proceed before the interview happens),
-      // but that action lives in the interview panel below, next to the
-      // booking it is a decision about, not duplicated here.
+        return [
+          { to: 'UNDER_REVIEW', label: 'Move back to Under Review', variant: 'ghost' },
+          { to: 'NOT_SELECTED', label: 'Not suitable', variant: 'danger' },
+        ];
+      // INTERVIEW_SCHEDULED -> NOT_SELECTED and -> SHORTLISTED (the
+      // correction) are both legal too, but they live in the interview panel
+      // below, next to the booking they are decisions about, not duplicated
+      // here.
       case 'INTERVIEWED':
-        return ['OFFER_MADE', 'NOT_SELECTED'];
+        return [
+          { to: 'OFFER_MADE', label: 'Make an offer', variant: 'primary' },
+          { to: 'NOT_SELECTED', label: 'Not suitable', variant: 'danger' },
+        ];
       case 'OFFER_ACCEPTED':
-        return ['JOINED'];
+        return [{ to: 'JOINED', label: 'Mark as joined', variant: 'primary' }];
       default:
         return [];
     }
@@ -384,6 +397,15 @@ function ApplicantCard({
               onStage('NOT_SELECTED');
             }
           }}
+          onCorrectToShortlisted={() => {
+            if (
+              window.confirm(
+                `Move ${c.fullName} back to Shortlisted? This cancels the booked interview — you can schedule a new one once you are ready.`,
+              )
+            ) {
+              onStage('SHORTLISTED');
+            }
+          }}
         />
       )}
 
@@ -392,48 +414,44 @@ function ApplicantCard({
           {open ? 'Hide profile' : 'View profile'}
         </Button>
 
-        {nextStages.map((next) => {
-          const action = STAGE_ACTIONS[next];
-          if (!action) return null;
-          return (
-            <Button
-              key={next}
-              variant={action.variant}
-              className="px-2 text-xs"
-              loading={isPending}
-              onClick={() => {
-                // Turning someone down notifies them and cannot be taken
-                // back after 24 hours. It was a one-tap danger button.
-                if (
-                  next === 'NOT_SELECTED' &&
-                  !window.confirm(
-                    `Mark ${c.fullName} as not suitable? They are notified, and this is hard to reverse.`,
-                  )
-                ) {
-                  return;
-                }
-                if (
-                  next === 'JOINED' &&
-                  !window.confirm(`Confirm ${c.fullName} has joined? This closes the application.`)
-                ) {
-                  return;
-                }
-                // They are notified immediately, and there is no stage back
-                // to retract it from here — only the candidate can accept,
-                // decline or withdraw from this point on.
-                if (
-                  next === 'OFFER_MADE' &&
-                  !window.confirm(`Make an offer to ${c.fullName}? They are notified right away, and you cannot retract it from here.`)
-                ) {
-                  return;
-                }
-                onStage(next);
-              }}
-            >
-              {action.label}
-            </Button>
-          );
-        })}
+        {nextStages.map((action) => (
+          <Button
+            key={action.to}
+            variant={action.variant}
+            className="px-2 text-xs"
+            loading={isPending}
+            onClick={() => {
+              // Turning someone down notifies them and cannot be taken
+              // back after 24 hours. It was a one-tap danger button.
+              if (
+                action.to === 'NOT_SELECTED' &&
+                !window.confirm(
+                  `Mark ${c.fullName} as not suitable? They are notified, and this is hard to reverse.`,
+                )
+              ) {
+                return;
+              }
+              if (
+                action.to === 'JOINED' &&
+                !window.confirm(`Confirm ${c.fullName} has joined? This closes the application.`)
+              ) {
+                return;
+              }
+              // They are notified immediately, and there is no stage back
+              // to retract it from here — only the candidate can accept,
+              // decline or withdraw from this point on.
+              if (
+                action.to === 'OFFER_MADE' &&
+                !window.confirm(`Make an offer to ${c.fullName}? They are notified right away, and you cannot retract it from here.`)
+              ) {
+                return;
+              }
+              onStage(action.to);
+            }}
+          >
+            {action.label}
+          </Button>
+        ))}
       </div>
 
       <p className="mt-2 text-xs text-slate-400">
@@ -464,11 +482,13 @@ function InterviewPanel({
   candidateName,
   stage,
   onNotSelected,
+  onCorrectToShortlisted,
 }: {
   applicationId: string;
   candidateName: string;
   stage: string;
   onNotSelected: () => void;
+  onCorrectToShortlisted: () => void;
 }) {
   const { data, isPending } = useEmployerInterview(applicationId, true);
   const requestInterview = useRequestInterview();
@@ -565,6 +585,15 @@ function InterviewPanel({
                 }}
               >
                 Cancel interview
+              </Button>
+              {/*
+                * Correcting a mis-click into this stage — scheduled too
+                * early, wrong candidate, etc. Lives here rather than in the
+                * card's own action row because, like Cancel interview above
+                * it, it is a decision about this specific booking.
+                */}
+              <Button variant="ghost" className="px-2 text-xs" onClick={onCorrectToShortlisted}>
+                Move back to Shortlisted
               </Button>
               <Button variant="danger" className="px-2 text-xs" onClick={onNotSelected}>
                 Not suitable

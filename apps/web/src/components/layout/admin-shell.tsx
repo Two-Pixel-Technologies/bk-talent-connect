@@ -137,7 +137,7 @@ function AccountMenu({ email, onSignOut }: { email: string | undefined; onSignOu
   }, [open]);
 
   return (
-    <div ref={containerRef} className="relative md:hidden">
+    <div ref={containerRef} className="relative lg:hidden">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -189,11 +189,18 @@ export function AdminShell() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 md:flex">
-      {/* Desktop sidebar. Sticky rather than fixed so it scrolls away with a
-          very long nav list on a short viewport instead of clipping.
-          Navigation and branding only — no account controls here. */}
-      <aside className="hidden md:sticky md:top-0 md:flex md:h-screen md:w-64 md:shrink-0 md:flex-col md:border-r md:border-pub-border md:bg-white">
+    <div className="min-h-screen bg-slate-50 lg:flex">
+      {/*
+        * Desktop sidebar. lg:, not md: — at md: (768px, iPad portrait and
+        * similar tablet widths) ten nav items in a persistent 256px sidebar
+        * left too little room for actual page content on a tablet-sized
+        * screen; Candidate and Employer already switch over at lg: (1024px),
+        * so this now matches instead of switching a width earlier than they
+        * do. Sticky rather than fixed so it scrolls away with a very long
+        * nav list on a short viewport instead of clipping. Navigation and
+        * branding only — no account controls here.
+        */}
+      <aside className="hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-64 lg:shrink-0 lg:flex-col lg:border-r lg:border-pub-border lg:bg-white">
         <div className="border-b border-pub-border p-4">
           <Brand />
         </div>
@@ -206,7 +213,7 @@ export function AdminShell() {
         <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-pub-border bg-white/95 px-4 py-3 backdrop-blur-sm sm:px-6">
           {/* Mobile-only brand + drawer trigger. Hidden on desktop, where the
               sidebar already carries the branding — nothing is duplicated. */}
-          <div className="flex min-w-0 flex-1 items-center gap-2.5 md:hidden">
+          <div className="flex min-w-0 flex-1 items-center gap-2.5 lg:hidden">
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
@@ -225,15 +232,15 @@ export function AdminShell() {
           {/* Desktop: [email] [bell] [Sign out], right-aligned, vertically
               centred. Mobile: just the bell plus the account-menu avatar —
               email and Sign out move behind that one tap (AccountMenu). */}
-          <div className="ml-auto flex shrink-0 items-center gap-2 md:gap-3">
-            <span className="hidden max-w-[14rem] truncate text-sm text-slate-500 md:inline">
+          <div className="ml-auto flex shrink-0 items-center gap-2 lg:gap-3">
+            <span className="hidden max-w-[14rem] truncate text-sm text-slate-500 lg:inline">
               {user?.email}
             </span>
             <NotificationBell />
             <button
               type="button"
               onClick={signOut}
-              className="hidden min-h-9 items-center rounded-lg border border-pub-border px-3.5 text-xs font-semibold text-pub-navy transition-colors hover:bg-pub-blue-light md:inline-flex"
+              className="hidden min-h-9 items-center rounded-lg border border-pub-border px-3.5 text-xs font-semibold text-pub-navy transition-colors hover:bg-pub-blue-light lg:inline-flex"
             >
               Sign out
             </button>
@@ -251,7 +258,7 @@ export function AdminShell() {
           Navigation only, same as the desktop sidebar — account access stays
           in the header's AccountMenu rather than being duplicated here too. */}
       {drawerOpen && (
-        <div className="fixed inset-0 z-30 md:hidden">
+        <div className="fixed inset-0 z-30 lg:hidden">
           <button
             type="button"
             aria-label="Close admin navigation"

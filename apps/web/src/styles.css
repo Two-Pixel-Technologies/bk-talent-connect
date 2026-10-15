@@ -48,6 +48,19 @@
   html {
     /* Stops iOS enlarging text in landscape. */
     -webkit-text-size-adjust: 100%;
+    /*
+     * Reserves the vertical scrollbar's width permanently, instead of only
+     * when content is actually tall enough to need it. Without this, a page
+     * whose content height crosses the scroll threshold on some filters but
+     * not others (Employer job postings: "All" with several cards vs a
+     * filter with none) has its available width change by the scrollbar's
+     * width between those states — and because every page layout is
+     * centered (mx-auto), that shift moves the whole page, header included,
+     * left or right by the scrollbar's half-width. This can only be fixed at
+     * the document root, since the document itself is what scrolls; there is
+     * no narrower place to reserve the same space.
+     */
+    scrollbar-gutter: stable;
   }
 
   body {

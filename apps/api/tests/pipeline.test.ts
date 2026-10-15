@@ -408,6 +408,133 @@ describe('stage transitions', () => {
   });
 });
 
+describe('employer-driven corrections', () => {
+  /*
+   * API-level check, not just the matrix unit test below: the generic stage
+   * route has its own allowlist of target stages (EMPLOYER_STAGES in
+   * employer-applicants.routes.ts) independent of canTransition. APPLIED
+   * previously was not in it, so even after the matrix allowed the move the
+   * route itself would still have refused it with a flat 403 — this proves
+   * both layers actually agree now, using the application "stage
+   * transitions" above already walked to SHORTLISTED, round-tripped back to
+   * exactly where it started so every block after this one — which all
+   * assume applicationId is SHORTLISTED — is unaffected.
+   */
+  it('lets the employer correct SHORTLISTED back to UNDER_REVIEW, and UNDER_REVIEW back to APPLIED, over real HTTP', async () => {
+    const toUnderReview = await asEmployer(
+      request(app).post(`/api/employer/applications/${applicationId}/stage`),
+    ).send({ stage: 'UNDER_REVIEW' });
+    expect(toUnderReview.status).toBe(200);
+    expect(toUnderReview.body.stage).toBe('UNDER_REVIEW');
+
+    const toApplied = await asEmployer(
+      request(app).post(`/api/employer/applications/${applicationId}/stage`),
+    ).send({ stage: 'APPLIED' });
+    expect(toApplied.status).toBe(200);
+    expect(toApplied.body.stage).toBe('APPLIED');
+
+    // Restore exactly what "stage transitions" left it at, so the
+    // "reveals the company once shortlisted" contract elsewhere still holds.
+    await asEmployer(request(app).post(`/api/employer/applications/${applicationId}/stage`)).send({
+      stage: 'UNDER_REVIEW',
+    });
+    const backToShortlisted = await asEmployer(
+      request(app).post(`/api/employer/applications/${applicationId}/stage`),
+    ).send({ stage: 'SHORTLISTED' });
+    expect(backToShortlisted.status).toBe(200);
+    expect(backToShortlisted.body.stage).toBe('SHORTLISTED');
+  });
+
+  it('refuses the same two corrections to a candidate', async () => {
+    const toUnderReview = await asEmployer(
+      request(app).post(`/api/employer/applications/${applicationId}/stage`),
+    ).send({ stage: 'UNDER_REVIEW' }); // get back to UNDER_REVIEW first so APPLIED is reachable
+    expect(toUnderReview.status).toBe(200);
+
+    const candidateTry = await asCandidate(
+      request(app).post(`/api/candidate/applications/${applicationId}/stage`),
+    ).send({ stage: 'APPLIED' });
+    // The candidate side of the product has never exposed a stage-set route
+    // at all — this is a 404 on a path that was never mounted, the same
+    // shape as the "no scheduling endpoint" check elsewhere in this file.
+    expect(candidateTry.status).toBe(404);
+
+    // Restore to SHORTLISTED again for the rest of the suite.
+    const back = await asEmployer(
+      request(app).post(`/api/employer/applications/${applicationId}/stage`),
+    ).send({ stage: 'SHORTLISTED' });
+    expect(back.status).toBe(200);
+  });
+
+  it('lets the employer correct INTERVIEW_SCHEDULED back to SHORTLISTED over real HTTP, cancelling the live interview', async () => {
+    // Isolated fixture — a fresh candidate applying to a fresh job on the
+    // same employer — so this disturbs neither ownApplicationId/interviewId
+    // used elsewhere, nor the ?stage=SHORTLISTED count on jobId that
+    // "withdraw and re-apply" asserts later in the file.
+    const candidateRepo = await import('../src/repositories/candidate.repo.js');
+    const interviewRepo = await import('../src/repositories/interview.repo.js');
+    const jobRepo = await import('../src/repositories/job.repo.js');
+    const employerRepo = await import('../src/repositories/employer.repo.js');
+
+    const employerMe = await request(app).get('/api/auth/me').set('Cookie', employerCookie);
+    const employerProfileId = employerRepo.findByUserId(employerMe.body.id)!.id;
+    const meeraJobId = jobRepo.create(employerProfileId, 'Design Engineer');
+    jobRepo.updateFields(meeraJobId, {
+      sector_id: 1,
+      city_id: 1,
+      min_experience: 2,
+      max_experience: 6,
+      description: 'A design engineering role.',
+    });
+    jobRepo.setStatus(meeraJobId, 'APPROVED', ['DRAFT'], { publishedAt: new Date().toISOString() });
+
+    const candidate = await request(app).post('/api/auth/register/candidate').set(CSRF_HEADER).send({
+      fullName: 'Meera Pillai',
+      email: 'meera@example.com',
+      mobile: '9876543288',
+      password: 'correct-horse-11',
+      consentToShare: true,
+    });
+    const meeraCookie = sessionCookie(candidate);
+    const me = await request(app).get('/api/auth/me').set('Cookie', meeraCookie);
+    candidateRepo.setStatus(candidateRepo.findByUserId(me.body.id)!.id, 'APPROVED');
+
+    const applied = await request(app)
+      .post(`/api/candidate/jobs/${meeraJobId}/apply`)
+      .set('Cookie', meeraCookie)
+      .set(CSRF_HEADER);
+    const meeraApplicationId = applied.body.applicationId;
+
+    for (const stage of ['UNDER_REVIEW', 'SHORTLISTED']) {
+      await asEmployer(request(app).post(`/api/employer/applications/${meeraApplicationId}/stage`)).send({
+        stage,
+      });
+    }
+
+    const scheduled = await asEmployer(
+      request(app).post(`/api/employer/applications/${meeraApplicationId}/interview`),
+    ).send({
+      scheduledAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+      durationMinutes: 30,
+      mode: 'PHONE',
+      locationOrLink: '9876543288',
+    });
+    expect(scheduled.status).toBe(201);
+    const meeraInterviewId = scheduled.body.interview.id;
+
+    const corrected = await asEmployer(
+      request(app).post(`/api/employer/applications/${meeraApplicationId}/stage`),
+    ).send({ stage: 'SHORTLISTED' });
+    expect(corrected.status).toBe(200);
+    expect(corrected.body.stage).toBe('SHORTLISTED');
+
+    // The same "leaving the interview stages ends the interview" behaviour
+    // that already applies to withdrawal/rejection applies to this
+    // correction too — nothing special-cased for it.
+    expect(interviewRepo.findById(meeraInterviewId)!.status).toBe('CANCELLED');
+  });
+});
+
 describe('the transition matrix', () => {
   it('agrees with itself for every declared transition', () => {
     for (const t of ALLOWED_TRANSITIONS) {
@@ -432,21 +559,22 @@ describe('the transition matrix', () => {
   });
 
   /*
-   * These three are declared ADMIN-only and Admin's mutation routes are gone,
-   * so nobody can currently execute them — a known, reported gap, not an
-   * invitation to widen Employer/Candidate permissions. This locks in that
-   * neither of them can perform these corrections, so a future change can't
-   * silently grant it by accident.
+   * Product decision: these three were admin-only, but Admin's mutation
+   * routes are gone and Admin stays read-only for hiring decisions — the
+   * employer is the party who made the forward move in each case, so they
+   * are also the one who corrects it. Neither Admin nor Candidate gets this;
+   * it is scoped to exactly these three (from, to) pairs, not a blanket
+   * "employer can move anything backward" rule.
    */
-  it('keeps the three admin-only regressions out of reach for employer and candidate', () => {
+  it('lets the employer make these three corrections, and nobody else', () => {
     const regressions: readonly [ApplicationStage, ApplicationStage][] = [
       ['UNDER_REVIEW', 'APPLIED'],
       ['SHORTLISTED', 'UNDER_REVIEW'],
       ['INTERVIEW_SCHEDULED', 'SHORTLISTED'],
     ];
     for (const [from, to] of regressions) {
-      expect(canTransition(from, to, 'ADMIN').allowed, `ADMIN ${from}->${to}`).toBe(true);
-      expect(canTransition(from, to, 'EMPLOYER').allowed, `EMPLOYER ${from}->${to}`).toBe(false);
+      expect(canTransition(from, to, 'EMPLOYER').allowed, `EMPLOYER ${from}->${to}`).toBe(true);
+      expect(canTransition(from, to, 'ADMIN').allowed, `ADMIN ${from}->${to}`).toBe(false);
       expect(canTransition(from, to, 'CANDIDATE').allowed, `CANDIDATE ${from}->${to}`).toBe(false);
     }
   });

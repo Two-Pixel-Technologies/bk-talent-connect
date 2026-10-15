@@ -45,8 +45,17 @@ employerApplicantsRouter.use(requireAuth, requireRole('EMPLOYER'));
  * of a bare stage-set. NOT_SELECTED covers rejecting both before and after an
  * interview is booked (the matrix allows it from several source stages).
  * JOINED is the employer confirming the candidate actually started.
+ *
+ * APPLIED is here only as a correction target — UNDER_REVIEW → APPLIED, the
+ * one regression that lands somewhere an employer could not otherwise set
+ * directly (SHORTLISTED and the other regression targets were already in
+ * this list for their forward-progression uses). This list only says which
+ * target stages the route will consider at all; whether the specific
+ * from→to move is legal for an employer is still decided by canTransition
+ * (stages.ts) in applicationService.changeStage below.
  */
 const EMPLOYER_STAGES: readonly ApplicationStage[] = [
+  'APPLIED',
   'UNDER_REVIEW',
   'SHORTLISTED',
   'NOT_SELECTED',

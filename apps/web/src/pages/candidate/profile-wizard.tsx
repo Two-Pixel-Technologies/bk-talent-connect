@@ -43,7 +43,6 @@ import {
 import { diffProfile, draftFromProfile } from '../../features/candidate/profile-diff.js';
 import { SkillsInput } from '../../components/skills-input.js';
 import { QueryState } from '../../components/query-state.js';
-import { DownwardSelect } from '../../components/downward-select.js';
 import { Alert, Badge, Button, Card, Field, Input, Select, Textarea } from '../../components/ui/index.js';
 import { CANDIDATE_CARD } from './candidate-style.js';
 
@@ -581,11 +580,11 @@ function ProfessionalStep({ draft, set, taxonomy, locked }: StepProps) {
           * of line with "Years of experience" beside it.
           */}
         <Field label="Sector (industry and professional area)" htmlFor="sectorSlug" required>
-          <DownwardSelect
+          <Select
             id="sectorSlug"
             value={draft.sectorSlug ?? ''}
-            placeholder="Select a sector"
-            onChange={(next) => {
+            onChange={(e) => {
+              const next = e.target.value;
               set('sectorSlug', next);
               // The backend clears the stored custom text whenever sectorSlug
               // moves away from 'other' too (candidate.service.ts toColumns) —
@@ -593,8 +592,12 @@ function ProfessionalStep({ draft, set, taxonomy, locked }: StepProps) {
               // candidate flips back to Other a moment later.
               if (next !== 'other') set('sectorOther', '');
             }}
-            options={(taxonomy?.sectors ?? []).map((s) => ({ value: s.slug, label: s.name }))}
-          />
+          >
+            <option value="">Select a sector</option>
+            {taxonomy?.sectors.map((s) => (
+              <option key={s.slug} value={s.slug}>{s.name}</option>
+            ))}
+          </Select>
         </Field>
       </div>
 
@@ -610,19 +613,20 @@ function ProfessionalStep({ draft, set, taxonomy, locked }: StepProps) {
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="Education level" htmlFor="educationLevel" required>
-          <DownwardSelect
+          <Select
             id="educationLevel"
             value={draft.educationLevel ?? ''}
-            placeholder="Select"
-            onChange={(next) => {
-              set('educationLevel', next as Draft['educationLevel']);
+            onChange={(e) => {
+              const next = e.target.value as Draft['educationLevel'];
+              set('educationLevel', next);
               if (next !== 'OTHER') set('educationLevelOther', '');
             }}
-            options={educationLevelOptions(draft.educationLevel).map((level) => ({
-              value: level,
-              label: EDUCATION_LABELS[level],
-            }))}
-          />
+          >
+            <option value="">Select</option>
+            {educationLevelOptions(draft.educationLevel).map((level) => (
+              <option key={level} value={level}>{EDUCATION_LABELS[level]}</option>
+            ))}
+          </Select>
         </Field>
         {/*
           * No separate hint line here on purpose — Field renders hint between

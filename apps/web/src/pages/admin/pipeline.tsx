@@ -122,51 +122,49 @@ export function PipelinePage() {
       )}
 
       {/*
-        * Below lg there isn't room for every filter button plus a 16rem
-        * search box on one row — sharing the row from sm meant the button
-        * row (which doesn't wrap, by design, so it can scroll horizontally)
-        * ran straight up against the search box with no space between them,
-        * sometimes slicing a button in half right at that boundary. Stacking
-        * until lg gives the filter row the full width to breathe in; the
-        * search box still gets a clear left border once they do share a row,
-        * so the boundary between them reads as deliberate even if the
-        * scrollable row happens to end mid-button.
+        * Filters on their own row, Search on the row below — the same shape
+        * the three review queues already use (queue-shell.tsx), not a row
+        * shared between the two. Sharing a row previously meant the filter
+        * row and a fixed-width search box were competing for the same
+        * horizontal space and neither fit at the reference desktop width
+        * (8 filter buttons need ~930px on their own); giving the filter row
+        * the full width removes that competition and the buttons fit
+        * without scrolling. overflow-x-auto stays as a safety net for
+        * narrower widths where they still don't all fit.
         */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="-mx-1 flex min-w-0 gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {FILTERS.map((f) => (
-            <button
-              key={f.value || 'all'}
-              type="button"
-              onClick={() => {
-                setPage(1);
-                setStage(f.value);
-              }}
-              className={`min-h-11 shrink-0 cursor-pointer rounded-lg border px-3 text-sm font-semibold whitespace-nowrap transition-colors ${
-                stage === f.value
-                  ? 'border-brand-600 bg-brand-600 text-white shadow-sm shadow-brand-900/10'
-                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              {f.label}
-              {data?.counts[f.value] ? <span className="ml-1.5 opacity-70">{data.counts[f.value]}</span> : null}
-            </button>
-          ))}
-        </div>
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {FILTERS.map((f) => (
+          <button
+            key={f.value || 'all'}
+            type="button"
+            onClick={() => {
+              setPage(1);
+              setStage(f.value);
+            }}
+            className={`min-h-11 shrink-0 cursor-pointer rounded-lg border px-3 text-sm font-semibold whitespace-nowrap transition-colors ${
+              stage === f.value
+                ? 'border-brand-600 bg-brand-600 text-white shadow-sm shadow-brand-900/10'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            {f.label}
+            {data?.counts[f.value] ? <span className="ml-1.5 opacity-70">{data.counts[f.value]}</span> : null}
+          </button>
+        ))}
+      </div>
 
-        <div className="lg:w-64 lg:shrink-0 lg:border-l lg:border-slate-200 lg:pl-4">
-          <Field label="Search" htmlFor="pipeline-search">
-            <Input
-              id="pipeline-search"
-              value={search}
-              onChange={(e) => {
-                setPage(1);
-                setSearch(e.target.value);
-              }}
-              placeholder="Candidate, job or company"
-            />
-          </Field>
-        </div>
+      <div className="max-w-sm">
+        <Field label="Search" htmlFor="pipeline-search">
+          <Input
+            id="pipeline-search"
+            value={search}
+            onChange={(e) => {
+              setPage(1);
+              setSearch(e.target.value);
+            }}
+            placeholder="Candidate, job or company"
+          />
+        </Field>
       </div>
 
       <QueryState isPending={isPending} error={error} onRetry={() => void refetch()}>

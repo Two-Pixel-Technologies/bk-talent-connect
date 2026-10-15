@@ -7,13 +7,21 @@
  * rather than being hand-rolled.
  */
 
-import type {
-  ButtonHTMLAttributes,
-  InputHTMLAttributes,
-  ReactNode,
-  Ref,
-  SelectHTMLAttributes,
-  TextareaHTMLAttributes,
+import {
+  Children,
+  isValidElement,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type ChangeEvent,
+  type InputHTMLAttributes,
+  type KeyboardEvent,
+  type ReactNode,
+  type Ref,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
 } from 'react';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -136,41 +144,233 @@ export function Textarea({
   );
 }
 
+const SELECT_CHEVRON =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E\")";
+
 /**
- * A native <select> renders completely differently on macOS, Windows and
- * Android — different heights, different arrows, and on macOS a grey inset
- * background that makes it look disabled next to a text input.
+ * Every dropdown in the app goes through this one component, so it is the
+ * single place that decides how a dropdown looks and where its menu opens.
  *
- * appearance-none strips the platform styling and an inline SVG chevron
- * replaces it, so the control matches the text inputs beside it everywhere.
- * It stays a real <select>, so mobile still gets the native picker wheel and
- * keyboard behaviour is unchanged.
+ * It used to render a real native <select>. Native option popups are drawn by
+ * the browser/OS, not this page, and the browser decides — based on how much
+ * room is left below versus above — whether to open the list upward. Nothing
+ * in CSS can override that choice, and when a field sits in the lower half of
+ * the page the list opened upward and got clipped against the top of the
+ * viewport. This hand-rolled combobox (the same trigger-button-plus-absolute-
+ * panel shape as the account menu and the skills-suggestion list elsewhere in
+ * this app) replaces it so every menu opens downward, every time, with no
+ * exceptions — the thing a native select could not reliably promise.
+ *
+ * The public API is unchanged on purpose: still `<option value=...>` children,
+ * still a `(e) => e.target.value`-shaped onChange, still the same id/required/
+ * invalid/disabled props. Every existing call site — two dozen of them, across
+ * all three portals — keeps working without being touched.
  */
 export function Select({
+  id,
+  value,
+  onChange,
+  disabled,
   invalid,
+  required,
   className = '',
   children,
-  ...props
+  'aria-label': ariaLabel,
 }: SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean }) {
-  const chevron =
-    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E\")";
+  const generatedId = useId();
+  const controlId = id ?? generatedId;
+  const listboxId = `${controlId}-listbox`;
+
+  const options = Children.toArray(children)
+    .filter(isValidElement<{ value?: string; children?: ReactNode; disabled?: boolean }>)
+    .map((el) => ({
+      value: String(el.props.value ?? ''),
+      label: typeof el.props.children === 'string' ? el.props.children : String(el.props.children ?? ''),
+      disabled: Boolean(el.props.disabled),
+    }));
+
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [maxListHeight, setMaxListHeight] = useState(256);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  const selected = options.find((o) => o.value === value);
+
+  // Always opens downward — the one behavioural change this component exists
+  // for (see the file comment). A trigger sitting near the bottom of the
+  // viewport (scrolled there by the browser's own "bring into view on focus",
+  // or just because that is where the field falls on a long form) could
+  // leave less room below it than any option list needs. Rather than let the
+  // panel run past the bottom edge — or fall back to opening upward, which is
+  // exactly the native-select behaviour this component exists to avoid —
+  // this scrolls the trigger to the middle of the viewport first, so there is
+  // reliably room below it, then sizes the panel to what is actually left.
+  useEffect(() => {
+    if (!open || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const roomBelow = window.innerHeight - rect.bottom;
+    if (roomBelow < 200) {
+      containerRef.current.scrollIntoView({ block: 'center', behavior: 'instant' });
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const available = window.innerHeight - rect.bottom - 16;
+    setMaxListHeight(Math.max(120, Math.min(256, available)));
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: MouseEvent | TouchEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open || activeIndex < 0) return;
+    const el = listRef.current?.children[activeIndex] as HTMLElement | undefined;
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [open, activeIndex]);
+
+  function openAt(index: number) {
+    setOpen(true);
+    setActiveIndex(index);
+  }
+
+  function commit(index: number) {
+    const option = options[index];
+    if (!option || option.disabled) return;
+    setOpen(false);
+    setActiveIndex(-1);
+    // Synthesized to match what every call site already reads: e.target.value.
+    // The native <select> this replaced never gave callers anything more than
+    // that, so nothing downstream needs more than that either.
+    onChange?.({ target: { value: option.value } } as ChangeEvent<HTMLSelectElement>);
+  }
+
+  function nextEnabledIndex(from: number, direction: 1 | -1): number {
+    if (options.length === 0) return -1;
+    let i = from;
+    for (let n = 0; n < options.length; n++) {
+      i = direction === 1 ? (i + 1 >= options.length ? 0 : i + 1) : i <= 0 ? options.length - 1 : i - 1;
+      if (!options[i]?.disabled) return i;
+    }
+    return from;
+  }
+
+  function onTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (disabled) return;
+    const currentIndex = options.findIndex((o) => o.value === value);
+
+    if (!open) {
+      if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) {
+        event.preventDefault();
+        openAt(currentIndex >= 0 ? currentIndex : 0);
+      }
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveIndex((i) => nextEnabledIndex(i, 1));
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveIndex((i) => nextEnabledIndex(i, -1));
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      setActiveIndex(0);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      setActiveIndex(options.length - 1);
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      if (activeIndex >= 0) commit(activeIndex);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      setOpen(false);
+      setActiveIndex(-1);
+    } else if (event.key === 'Tab') {
+      setOpen(false);
+      setActiveIndex(-1);
+    }
+  }
 
   return (
-    <select
-      {...props}
-      aria-invalid={invalid || undefined}
-      aria-describedby={invalid ? `${props.id}-error` : undefined}
-      className={`${CONTROL_BASE} appearance-none bg-white bg-no-repeat pr-10 ${
-        invalid ? 'border-accent-400' : 'border-slate-300'
-      } ${className}`}
-      style={{
-        backgroundImage: chevron,
-        backgroundPosition: 'right 0.65rem center',
-        backgroundSize: '1.25rem 1.25rem',
-      }}
-    >
-      {children}
-    </select>
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        id={controlId}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        onClick={() => (open ? setOpen(false) : openAt(options.findIndex((o) => o.value === value)))}
+        onKeyDown={onTriggerKeyDown}
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={listboxId}
+        aria-activedescendant={open && activeIndex >= 0 ? `${controlId}-option-${activeIndex}` : undefined}
+        aria-required={required || undefined}
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? `${controlId}-error` : undefined}
+        // Same CONTROL_BASE sizing as every text input, and the same
+        // background-image-chevron-plus-pr-10 technique the native select
+        // used, so the trigger is pixel-for-pixel identical to before.
+        className={`${CONTROL_BASE} truncate bg-white bg-no-repeat pr-10 text-left ${
+          invalid ? 'border-accent-400' : 'border-slate-300'
+        } ${className}`}
+        style={{
+          backgroundImage: SELECT_CHEVRON,
+          backgroundPosition: 'right 0.65rem center',
+          backgroundSize: '1.25rem 1.25rem',
+        }}
+      >
+        {selected ? selected.label : (options[0]?.label ?? '')}
+      </button>
+
+      {open && (
+        <ul
+          ref={listRef}
+          id={listboxId}
+          role="listbox"
+          aria-label={ariaLabel}
+          style={{ maxHeight: maxListHeight }}
+          className="absolute top-full left-0 z-40 mt-1 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg shadow-slate-900/10"
+        >
+          {options.map((option, index) => (
+            <li
+              key={option.value}
+              id={`${controlId}-option-${index}`}
+              role="option"
+              aria-selected={option.value === value}
+              aria-disabled={option.disabled || undefined}
+              onMouseEnter={() => !option.disabled && setActiveIndex(index)}
+              onMouseDown={(e) => {
+                // mousedown, not click — fires before the trigger's blur would
+                // otherwise close the panel and swallow the selection.
+                e.preventDefault();
+                commit(index);
+              }}
+              className={`px-3 py-2 text-sm ${
+                option.disabled
+                  ? 'cursor-not-allowed text-slate-400'
+                  : `cursor-pointer ${index === activeIndex ? 'bg-brand-50 text-brand-900' : 'text-slate-700'}`
+              } ${option.value === value ? 'font-semibold' : ''}`}
+            >
+              {option.label}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

@@ -91,24 +91,22 @@ export const ALLOWED_TRANSITIONS: readonly StageTransition[] = [
   { from: 'OFFER_ACCEPTED', to: 'JOINED', roles: ['EMPLOYER'] },
 
   /*
-   * --- Admin-only regressions -----------------------------------------------
+   * --- Employer-driven corrections --------------------------------------------
    *
-   * These remain exactly as documented below — correction tools, never an
-   * employer or candidate action — but Admin's mutation routes are gone, so
-   * these three transitions are now structurally unreachable by anyone. That
-   * is a known, reported gap (see the project's hiring-workflow report), not
-   * something resolved by assigning them to a new actor: the existing intent
-   * explicitly excluded Employer from them, and Candidate was never a
-   * candidate for them either.
+   * Product decision (confirmed by the team): these three regressions were
+   * admin-only in the original design, but Admin's mutation routes are gone
+   * and Admin is read-only for hiring decisions end to end — nobody else was
+   * ever assigned them, which left them structurally unreachable. The
+   * employer is the party who actually made the forward move in each case
+   * (moved someone to review, shortlisted them, booked the interview), so
+   * they are also the right party to undo a mis-click. This does not touch
+   * the NOT_SELECTED reversal below — that stays admin-only and 24-hour-
+   * windowed; the team's decision there is a warning before rejecting, not a
+   * new self-service undo.
    */
-  {
-    from: 'UNDER_REVIEW',
-    to: 'APPLIED',
-    roles: ['ADMIN'],
-    note: 'Regression is an admin correction tool, never an employer action.',
-  },
-  { from: 'SHORTLISTED', to: 'UNDER_REVIEW', roles: ['ADMIN'] },
-  { from: 'INTERVIEW_SCHEDULED', to: 'SHORTLISTED', roles: ['ADMIN'] },
+  { from: 'UNDER_REVIEW', to: 'APPLIED', roles: ['EMPLOYER'] },
+  { from: 'SHORTLISTED', to: 'UNDER_REVIEW', roles: ['EMPLOYER'] },
+  { from: 'INTERVIEW_SCHEDULED', to: 'SHORTLISTED', roles: ['EMPLOYER'] },
 
   // --- Candidate-driven -----------------------------------------------------
   { from: 'APPLIED', to: 'WITHDRAWN', roles: ['CANDIDATE'] },
