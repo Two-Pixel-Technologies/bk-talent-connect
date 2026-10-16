@@ -197,33 +197,34 @@
       line-height: 1;
     }
 
-    /* Mobile-first presentation for public marketing content. Employers keeps
-       its established left-aligned mobile composition by design. */
-    .public-site:not(.employers-public) section {
+    /* Mobile-first presentation for public marketing content. Employers and
+       the legal pages (privacy policy, terms of use) keep their established
+       left-aligned mobile composition by design. */
+    .public-site:not(.employers-public):not(.legal-public) section {
       text-align: center;
     }
 
-    .public-site:not(.employers-public) section :is(.max-w-md, .max-w-lg, .max-w-xl, .max-w-2xl) {
+    .public-site:not(.employers-public):not(.legal-public) section :is(.max-w-md, .max-w-lg, .max-w-xl, .max-w-2xl) {
       margin-left: auto;
       margin-right: auto;
     }
 
-    .public-site:not(.employers-public) section :is(.items-start, .justify-start) {
+    .public-site:not(.employers-public):not(.legal-public) section :is(.items-start, .justify-start) {
       align-items: center;
       justify-content: center;
     }
 
-    .public-site:not(.employers-public) section :is(ul, ol) {
+    .public-site:not(.employers-public):not(.legal-public) section :is(ul, ol) {
       margin-left: auto;
       margin-right: auto;
     }
 
-    .public-site:not(.employers-public) section form,
-    .public-site:not(.employers-public) section form * {
+    .public-site:not(.employers-public):not(.legal-public) section form,
+    .public-site:not(.employers-public):not(.legal-public) section form * {
       text-align: left;
     }
 
-    .public-site:not(.employers-public) section form button {
+    .public-site:not(.employers-public):not(.legal-public) section form button {
       text-align: center;
     }
 

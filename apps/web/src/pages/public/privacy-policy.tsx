@@ -1,22 +1,16 @@
 /**
  * Public Privacy Policy (P9 legal page).
  *
- * This page is DRAFT content pending legal review by BK Talent Acquisition
- * and Advisory — see the banner below, which is intentional and must stay
- * until the business/legal owner confirms the page is approved for
- * publication. Every factual statement here is drawn from what the product
- * actually does today (see apps/web/src/pages/account/privacy.tsx and the
- * API routes/serializers it describes) — nothing about AI matching or
- * email/WhatsApp delivery is claimed as live, since neither exists yet.
- * Items that need a legal/business decision (registered address, grievance
- * officer, retention periods) are explicitly marked as pending rather than
- * invented.
+ * Every factual statement here is drawn from what the product actually does
+ * today (see apps/web/src/pages/account/privacy.tsx and the API routes/
+ * serializers it describes) — nothing about AI matching or email/WhatsApp
+ * delivery is claimed as live, since neither exists yet. Items that need a
+ * legal/business decision (registered address, grievance officer, retention
+ * periods) are explicitly marked as pending rather than invented.
  */
 
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-
-const LAST_REVIEWED = '15 October 2026';
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -29,23 +23,10 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 export function PrivacyPolicyPage() {
   return (
-    <main className="public-site overflow-x-clip">
+    <main className="public-site legal-public overflow-x-clip">
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
         <p className="text-xs font-semibold uppercase tracking-widest text-pub-blue">Legal</p>
         <h1 className="mt-2 font-heading text-3xl font-extrabold text-pub-navy">Privacy Policy</h1>
-        <p className="mt-2 text-sm text-pub-muted">Last reviewed: {LAST_REVIEWED}</p>
-
-        <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-semibold">Draft — pending legal review</p>
-          <p className="mt-1">
-            This policy describes what BK Talent Connect actually does today. It has not yet been
-            reviewed or approved by BK Talent Acquisition and Advisory's legal counsel, and several
-            sections (marked below) are placeholders awaiting information only the business owner
-            can supply — registered entity details, a named grievance officer, and formal retention
-            periods. Do not treat this page as a finalised legal document until that review is
-            complete.
-          </p>
-        </div>
 
         <div className="mt-8 space-y-6">
           <Section title="Who operates this platform">

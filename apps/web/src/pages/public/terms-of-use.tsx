@@ -1,18 +1,15 @@
 /**
  * Public Terms of Use (P9 legal page).
  *
- * Same draft-pending-legal-review status as privacy-policy.tsx — see that
- * file's header comment. Content here describes the platform's actual,
- * implemented role as an intermediary (candidate contact routed through our
- * team, company identity withheld pre-shortlist) rather than a generic
- * marketplace ToS; placeholders for jurisdiction/liability/entity details
- * are marked explicitly rather than invented.
+ * Content here describes the platform's actual, implemented role as an
+ * intermediary (candidate contact routed through our team, company identity
+ * withheld pre-shortlist) rather than a generic marketplace ToS;
+ * placeholders for jurisdiction/liability/entity details are marked
+ * explicitly rather than invented.
  */
 
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-
-const LAST_REVIEWED = '15 October 2026';
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -25,21 +22,10 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 export function TermsOfUsePage() {
   return (
-    <main className="public-site overflow-x-clip">
+    <main className="public-site legal-public overflow-x-clip">
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
         <p className="text-xs font-semibold uppercase tracking-widest text-pub-blue">Legal</p>
         <h1 className="mt-2 font-heading text-3xl font-extrabold text-pub-navy">Terms of Use</h1>
-        <p className="mt-2 text-sm text-pub-muted">Last reviewed: {LAST_REVIEWED}</p>
-
-        <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-semibold">Draft — pending legal review</p>
-          <p className="mt-1">
-            These terms have not yet been reviewed or approved by BK Talent Acquisition and
-            Advisory's legal counsel. Governing law, jurisdiction, liability limits, and formal
-            entity details are placeholders below, pending that review — do not treat this page as
-            finalised until it is confirmed.
-          </p>
-        </div>
 
         <div className="mt-8 space-y-6">
           <Section title="Who these terms apply to">
