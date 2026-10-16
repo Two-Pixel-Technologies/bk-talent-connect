@@ -49,36 +49,64 @@ export interface StageTransition {
 
 export const ALLOWED_TRANSITIONS: readonly StageTransition[] = [
   // --- Employer-driven progression -----------------------------------------
-  { from: 'APPLIED', to: 'UNDER_REVIEW', roles: ['EMPLOYER', 'ADMIN'] },
-  { from: 'APPLIED', to: 'NOT_SELECTED', roles: ['EMPLOYER', 'ADMIN'] },
-  { from: 'UNDER_REVIEW', to: 'SHORTLISTED', roles: ['EMPLOYER', 'ADMIN'] },
-  { from: 'UNDER_REVIEW', to: 'NOT_SELECTED', roles: ['EMPLOYER', 'ADMIN'] },
-  { from: 'SHORTLISTED', to: 'NOT_SELECTED', roles: ['EMPLOYER', 'ADMIN'] },
-  { from: 'INTERVIEWED', to: 'OFFER_MADE', roles: ['EMPLOYER', 'ADMIN'] },
-  { from: 'INTERVIEWED', to: 'NOT_SELECTED', roles: ['EMPLOYER', 'ADMIN'] },
+  { from: 'APPLIED', to: 'UNDER_REVIEW', roles: ['EMPLOYER'] },
+  { from: 'APPLIED', to: 'NOT_SELECTED', roles: ['EMPLOYER'] },
+  { from: 'UNDER_REVIEW', to: 'SHORTLISTED', roles: ['EMPLOYER'] },
+  { from: 'UNDER_REVIEW', to: 'NOT_SELECTED', roles: ['EMPLOYER'] },
+  { from: 'SHORTLISTED', to: 'NOT_SELECTED', roles: ['EMPLOYER'] },
+  { from: 'INTERVIEWED', to: 'OFFER_MADE', roles: ['EMPLOYER'] },
+  { from: 'INTERVIEWED', to: 'NOT_SELECTED', roles: ['EMPLOYER'] },
 
-  // --- Admin-only: BK coordinates every interview ---------------------------
-  {
-    from: 'SHORTLISTED',
-    to: 'INTERVIEW_SCHEDULED',
-    roles: ['ADMIN'],
-    note: 'BK schedules and confirms with both parties; employers request, they do not schedule.',
-  },
-  { from: 'INTERVIEW_SCHEDULED', to: 'INTERVIEWED', roles: ['ADMIN'] },
-  { from: 'INTERVIEW_SCHEDULED', to: 'NOT_SELECTED', roles: ['ADMIN'] },
-  { from: 'OFFER_MADE', to: 'OFFER_ACCEPTED', roles: ['ADMIN'] },
-  { from: 'OFFER_MADE', to: 'OFFER_DECLINED', roles: ['ADMIN'] },
-  { from: 'OFFER_ACCEPTED', to: 'JOINED', roles: ['ADMIN'] },
+  /*
+   * --- Employer-driven interview coordination -------------------------------
+   *
+   * Previously admin-only ("BK schedules and confirms with both parties").
+   * Product decision: Candidate and Employer own interview coordination and
+   * every hiring decision end to end; Admin is read-only. The employer now
+   * schedules directly (via the same scheduleInterview/completeInterview
+   * service functions, parameterised by actor role instead of hardcoded to
+   * ADMIN) and can still just ask (requestInterview) if they would rather
+   * propose slots first.
+   */
+  { from: 'SHORTLISTED', to: 'INTERVIEW_SCHEDULED', roles: ['EMPLOYER'] },
+  { from: 'INTERVIEW_SCHEDULED', to: 'INTERVIEWED', roles: ['EMPLOYER'] },
+  { from: 'INTERVIEW_SCHEDULED', to: 'NOT_SELECTED', roles: ['EMPLOYER'] },
 
-  // --- Admin-only regressions ----------------------------------------------
-  {
-    from: 'UNDER_REVIEW',
-    to: 'APPLIED',
-    roles: ['ADMIN'],
-    note: 'Regression is an admin correction tool, never an employer action.',
-  },
-  { from: 'SHORTLISTED', to: 'UNDER_REVIEW', roles: ['ADMIN'] },
-  { from: 'INTERVIEW_SCHEDULED', to: 'SHORTLISTED', roles: ['ADMIN'] },
+  /*
+   * --- The offer decision is the candidate's ---------------------------------
+   *
+   * Accepting or declining a job offer is unambiguously the candidate's own
+   * decision in any real hiring process, not the employer's and not BK's.
+   * Previously admin-only; BK had no business making this call on anyone's
+   * behalf, it simply had no other actor to assign it to.
+   */
+  { from: 'OFFER_MADE', to: 'OFFER_ACCEPTED', roles: ['CANDIDATE'] },
+  { from: 'OFFER_MADE', to: 'OFFER_DECLINED', roles: ['CANDIDATE'] },
+
+  /*
+   * --- Joining is the employer's to confirm -----------------------------------
+   * The employer is the party who actually observes the candidate starting —
+   * onboarding, first day — so they confirm it, previously admin-only.
+   */
+  { from: 'OFFER_ACCEPTED', to: 'JOINED', roles: ['EMPLOYER'] },
+
+  /*
+   * --- Employer-driven corrections --------------------------------------------
+   *
+   * Product decision (confirmed by the team): these three regressions were
+   * admin-only in the original design, but Admin's mutation routes are gone
+   * and Admin is read-only for hiring decisions end to end — nobody else was
+   * ever assigned them, which left them structurally unreachable. The
+   * employer is the party who actually made the forward move in each case
+   * (moved someone to review, shortlisted them, booked the interview), so
+   * they are also the right party to undo a mis-click. This does not touch
+   * the NOT_SELECTED reversal below — that stays admin-only and 24-hour-
+   * windowed; the team's decision there is a warning before rejecting, not a
+   * new self-service undo.
+   */
+  { from: 'UNDER_REVIEW', to: 'APPLIED', roles: ['EMPLOYER'] },
+  { from: 'SHORTLISTED', to: 'UNDER_REVIEW', roles: ['EMPLOYER'] },
+  { from: 'INTERVIEW_SCHEDULED', to: 'SHORTLISTED', roles: ['EMPLOYER'] },
 
   // --- Candidate-driven -----------------------------------------------------
   { from: 'APPLIED', to: 'WITHDRAWN', roles: ['CANDIDATE'] },

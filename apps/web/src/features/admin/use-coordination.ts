@@ -18,58 +18,17 @@ export type AdminInterview = {
   candidateName?: string;
 };
 
-export type InterviewRequest = {
-  id: string;
-  applicationId: string;
-  candidateName: string;
-  preferredSlots: string[];
-  note: string | null;
-  createdAt: string;
-};
-
-export type Coordination = {
-  upcoming: AdminInterview[];
-  requests: InterviewRequest[];
-};
-
-export function useCoordination() {
+/**
+ * Read-only: Admin can see an application's interview history (folded into
+ * the Pipeline page) but cannot schedule, cancel or complete one — that
+ * authority moved entirely to Candidate/Employer. See
+ * admin-coordination.routes.ts's file comment for the product decision.
+ */
+export function useApplicationInterviews(applicationId: string, enabled: boolean) {
   return useQuery({
-    queryKey: ['admin', 'coordination'],
-    queryFn: () => api.get<Coordination>('/admin/coordination'),
-  });
-}
-
-export interface ScheduleInput {
-  applicationId: string;
-  scheduledAt: string;
-  durationMinutes: number;
-  mode: InterviewMode;
-  locationOrLink: string;
-  instructions?: string;
-}
-
-export function useScheduleInterview() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({ applicationId, ...body }: ScheduleInput) =>
-      api.post<AdminInterview & { rescheduled: boolean }>(
-        `/admin/applications/${applicationId}/interview`,
-        body,
-      ),
-    onSuccess: () => {
-      // The stage moves with the booking, so the pipeline is stale too.
-      void client.invalidateQueries({ queryKey: ['admin'] });
-    },
-  });
-}
-
-export function useInterviewAction(action: 'cancel' | 'complete') {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (interviewId: string) => api.post<void>(`/admin/interviews/${interviewId}/${action}`),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ['admin'] });
-    },
+    queryKey: ['admin', 'application-interviews', applicationId],
+    queryFn: () => api.get<{ items: AdminInterview[] }>(`/admin/applications/${applicationId}/interviews`),
+    enabled,
   });
 }
 

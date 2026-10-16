@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { formatDateTime } from '@bktc/shared';
 import { api, ApiError } from '../../lib/api-client.js';
 import { useAuth } from '../../features/auth/auth-context.js';
@@ -49,22 +50,30 @@ export function PrivacyPage() {
   const open = requests.data?.items.find((r) => r.status === 'OPEN');
   const isCandidate = user?.role === 'CANDIDATE';
 
+  // Same hairline-plus-shadow surface Candidate and Employer portal pages
+  // both use for their primary cards (candidate-style.ts / employer-style.ts)
+  // — inlined here rather than importing either, since this page is shared
+  // by both and importing one portal's constant into the other's route
+  // would be exactly the scope mistake those files warn against.
+  const cardEmphasis = 'border-slate-300/70 shadow-[0_2px_10px_rgba(15,23,42,0.05)]';
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-brand-900">Your data</h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="text-xs font-semibold tracking-widest text-pub-blue uppercase">Your Data</p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-brand-900">Your data</h1>
+        <p className="mt-1.5 text-sm text-slate-600">
           What we hold, who sees it, and how to have it removed.
         </p>
       </div>
 
-      <Card>
+      <Card className={cardEmphasis}>
         <h2 className="font-semibold text-brand-900">Who sees what</h2>
         {isCandidate ? (
           <ul className="mt-3 space-y-2 text-sm text-slate-700">
             <li>
               <span className="font-medium">Employers never see</span> your email address, your
-              mobile number, or anything about your salary — current or expected. All contact goes
+              mobile number, or anything about your salary - current or expected. All contact goes
               through our team.
             </li>
             <li>
@@ -89,18 +98,18 @@ export function PrivacyPage() {
             </li>
             <li>
               <span className="font-medium">You see</span> the profile and CV of anyone who applies
-              to your roles or whom we put forward — never their contact details.
+              to your roles or whom we put forward - never their contact details.
             </li>
             <li>Our team sees your company profile, your postings and your pipeline activity.</li>
           </ul>
         )}
       </Card>
 
-      <Card>
+      <Card className={cardEmphasis}>
         <h2 className="font-semibold text-brand-900">Ask us to erase your account</h2>
         <p className="mt-2 text-sm text-slate-600">
           You can ask us to delete everything personal we hold about you: your profile, your CV, and
-          your contact details. We review the request first — if you are mid-process with an
+          your contact details. We review the request first - if you are mid-process with an
           employer we will tell you rather than pulling you out of it without warning.
         </p>
         <p className="mt-2 text-sm text-slate-600">
@@ -126,8 +135,8 @@ export function PrivacyPage() {
               </Alert>
             </div>
           ) : confirming ? (
-            <div className="mt-4 rounded-lg border border-accent-200 bg-accent-50 p-4">
-              <p className="text-sm font-medium text-accent-900">
+            <div className="mt-4 rounded-xl border border-accent-200 bg-accent-50 p-4">
+              <p className="text-sm font-semibold text-accent-900">
                 This cannot be undone once we action it.
               </p>
               <div className="mt-3">
@@ -176,6 +185,18 @@ export function PrivacyPage() {
           )}
         </QueryState>
       </Card>
+
+      <p className="text-sm text-slate-500">
+        See the full{' '}
+        <Link to="/privacy-policy" className="font-medium text-brand-600 hover:underline">
+          Privacy Policy
+        </Link>{' '}
+        and{' '}
+        <Link to="/terms-of-use" className="font-medium text-brand-600 hover:underline">
+          Terms of Use
+        </Link>
+        .
+      </p>
     </div>
   );
 }

@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { LIMITS, type UpdateEmployerProfileInput } from '@bktc/shared';
 import { ApiError } from '../../lib/api-client.js';
 import { diffDraft } from '../../lib/diff-draft.js';
@@ -19,6 +20,7 @@ import {
 import { useTaxonomy } from '../../features/candidate/use-profile.js';
 import { Alert, Button, Card, Field, Input, Select, Textarea } from '../../components/ui/index.js';
 import { QueryState } from '../../components/query-state.js';
+import { EMPLOYER_CARD } from './employer-style.js';
 
 type Draft = UpdateEmployerProfileInput;
 
@@ -37,6 +39,7 @@ function savedValuesOf(profile: EmployerProfile): Draft {
 }
 
 export function CompanyProfilePage() {
+  const navigate = useNavigate();
   const { data: profile, isPending, error: loadError, refetch } = useEmployerProfile();
   const { data: taxonomy } = useTaxonomy();
   const update = useUpdateEmployerProfile();
@@ -89,8 +92,9 @@ export function CompanyProfilePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-brand-900">Your company</h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="text-xs font-semibold tracking-widest text-pub-blue uppercase">Company Profile</p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-brand-900">Your company</h1>
+        <p className="mt-1.5 text-sm text-slate-600">
           What our team knows about you, and what shortlisted candidates see.
         </p>
       </div>
@@ -137,7 +141,7 @@ export function CompanyProfilePage() {
             team. Candidates read the introduction once they are shortlisted.
           </p>
           <div className="mt-3">
-            <Button onClick={() => submit.mutate()} loading={submit.isPending}>
+            <Button onClick={() => submit.mutate(undefined, { onSuccess: () => navigate('/employer') })} loading={submit.isPending}>
               Send for verification
             </Button>
           </div>
@@ -159,8 +163,11 @@ export function CompanyProfilePage() {
         </Alert>
       )}
 
-      <Card>
+      <Card className={EMPLOYER_CARD}>
         <div className="space-y-5">
+          <h2 className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+            Company information
+          </h2>
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Company name" htmlFor="companyName" required>
               <Input id="companyName" value={draft.companyName ?? ''} onChange={(e) => set('companyName', e.target.value)} />
@@ -189,7 +196,7 @@ export function CompanyProfilePage() {
               Where you typically hire · up to {LIMITS.employer.locations.max}
             </p>
 
-            <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-slate-200 p-1">
+            <div className="mt-2 max-h-64 space-y-0.5 overflow-y-auto rounded-lg border border-slate-200 p-1.5">
               {(taxonomy?.cities ?? [])
                 .filter((c) => c.state !== null)
                 .map((c) => {
@@ -200,13 +207,27 @@ export function CompanyProfilePage() {
                   return (
                     <label
                       key={c.slug}
-                      className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-3 text-sm ${
-                        atLimit ? 'text-slate-400' : 'text-slate-700 hover:bg-slate-50'
+                      className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 text-sm transition-colors ${
+                        atLimit
+                          ? 'border-transparent text-slate-400'
+                          : selected
+                            ? 'border-brand-200 bg-brand-50/70 text-slate-800'
+                            : 'border-transparent text-slate-700 hover:bg-slate-50'
                       }`}
                     >
+                      {/*
+                        * The shared input reset (styles.css) applies
+                        * appearance-none to every input/select/textarea for
+                        * Safari's rounded-input quirk, which also stripped the
+                        * native checkbox box and tick with nothing put back in
+                        * its place — the control existed and worked, it was
+                        * just invisible. appearance-auto restores it here,
+                        * scoped to this one checkbox rather than touching the
+                        * shared reset.
+                        */}
                       <input
                         type="checkbox"
-                        className="size-4 shrink-0 rounded border-slate-300"
+                        className="size-4 shrink-0 appearance-auto rounded border-slate-300 accent-brand-600"
                         checked={selected}
                         disabled={atLimit}
                         onChange={(e) => {
@@ -220,7 +241,7 @@ export function CompanyProfilePage() {
                         }}
                       />
                       <span>
-                        {c.name} <span className="text-slate-400">— {c.state}</span>
+                        {c.name} <span className="text-slate-400">- {c.state}</span>
                       </span>
                     </label>
                   );
@@ -241,20 +262,27 @@ export function CompanyProfilePage() {
             </Field>
           </div>
 
-          <Field
-            label="About your company"
-            htmlFor="companyIntro"
-            hint="Shown to candidates once they reach shortlist. What you make, where, and what it is like to work there."
-          >
-            <Textarea id="companyIntro" rows={5} value={draft.companyIntro ?? ''} onChange={(e) => set('companyIntro', e.target.value)} maxLength={LIMITS.employer.companyIntro.max} />
-            <p className="mt-1.5 text-xs text-slate-500">
-              {introLength} / {LIMITS.employer.companyIntro.max} characters
-            </p>
-          </Field>
+          <div className="border-t border-slate-100 pt-5">
+            <h2 className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+              Company introduction
+            </h2>
+            <Field
+              label="About your company"
+              htmlFor="companyIntro"
+              hint="Shown to candidates once they reach shortlist. What you make, where, and what it is like to work there."
+            >
+              <Textarea id="companyIntro" rows={5} value={draft.companyIntro ?? ''} onChange={(e) => set('companyIntro', e.target.value)} maxLength={LIMITS.employer.companyIntro.max} />
+              <p className="mt-1.5 text-xs text-slate-500">
+                {introLength} / {LIMITS.employer.companyIntro.max} characters
+              </p>
+            </Field>
+          </div>
 
           <div className="border-t border-slate-100 pt-5">
-            <h2 className="font-semibold text-brand-900">Primary contact</h2>
-            <p className="mt-1 text-sm text-slate-600">
+            <h2 className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+              HR contact
+            </h2>
+            <p className="mt-1.5 text-sm text-slate-600">
               How our team reaches you. Never shown to candidates.
             </p>
             <div className="mt-4 grid gap-5 sm:grid-cols-2">

@@ -23,12 +23,15 @@ import {
   useInterview,
   useConfirmInterview,
   useDeclineRecommendation,
+  useAcceptOffer,
+  useDeclineOffer,
   type TrackedApplication,
 } from '../../features/candidate/use-jobs.js';
 import { Alert, Badge, Button, Card, EmptyState } from '../../components/ui/index.js';
 import { Pagination } from '../../components/pagination.js';
 import { QueryState } from '../../components/query-state.js';
 import { MutationFeedback } from '../../components/mutation-feedback.js';
+import { CANDIDATE_CARD } from './candidate-style.js';
 
 const REVEALED_STAGES = [
   'SHORTLISTED',
@@ -49,8 +52,9 @@ export function ApplicationsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-brand-900">Your applications</h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="text-xs font-semibold tracking-widest text-pub-blue uppercase">Application Tracker</p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-brand-900">Your applications</h1>
+        <p className="mt-1.5 text-sm text-slate-600">
           We update these as each one moves. You&rsquo;ll see the company once you&rsquo;re
           shortlisted.
         </p>
@@ -60,7 +64,7 @@ export function ApplicationsPage() {
       {data && data.items.length === 0 && (
         <EmptyState
           title="No applications yet"
-          description="Browse open roles and apply — or wait for our team to put you forward directly."
+          description="Browse open roles and apply, or wait for our team to put you forward directly."
           action={
             <Link
               to="/candidate/jobs"
@@ -96,17 +100,19 @@ function ApplicationCard({ application: a }: { application: TrackedApplication }
   const [expanded, setExpanded] = useState(false);
   const withdraw = useWithdraw();
   const decline = useDeclineRecommendation();
+  const acceptOffer = useAcceptOffer();
+  const declineOffer = useDeclineOffer();
   const revealed = REVEALED_STAGES.includes(a.stage);
   const { data: company } = useCompanyReveal(a.id, revealed && expanded);
 
   const closed = TERMINAL.includes(a.stage);
 
   return (
-    <Card>
+    <Card className={`transition-shadow hover:shadow-[0_4px_16px_rgba(15,23,42,0.07)] ${CANDIDATE_CARD}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-semibold text-brand-900">{a.jobTitle}</p>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="font-semibold text-slate-900">{a.jobTitle}</p>
+          <p className="mt-1 text-sm text-slate-500">
             {a.employerName ?? 'Company revealed at shortlist'}
             {a.cityName ? ` · ${a.cityName}` : ''}
           </p>
@@ -147,7 +153,7 @@ function ApplicationCard({ application: a }: { application: TrackedApplication }
             <MutationFeedback
               error={decline.error}
               isSuccess={decline.isSuccess}
-              successMessage="Thanks — we have told the company and stopped putting you forward."
+              successMessage="Thanks. We have told the company and stopped putting you forward."
             />
           </Alert>
         </div>
@@ -170,12 +176,52 @@ function ApplicationCard({ application: a }: { application: TrackedApplication }
             title={CANDIDATE_STAGE_MESSAGE[a.stage as 'OFFER_MADE']!.headline}
           >
             {CANDIDATE_STAGE_MESSAGE[a.stage as 'OFFER_MADE']!.body}
+
+            {a.stage === 'OFFER_MADE' && (
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <Button
+                  className="px-3 text-xs"
+                  loading={acceptOffer.isPending}
+                  onClick={() => {
+                    if (window.confirm('Accept this offer? The company will be told right away.')) {
+                      acceptOffer.mutate(a.id);
+                    }
+                  }}
+                >
+                  Accept offer
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="px-3 text-xs"
+                  loading={declineOffer.isPending}
+                  onClick={() => {
+                    if (
+                      window.confirm('Decline this offer? This cannot be undone, and the company will be told.')
+                    ) {
+                      declineOffer.mutate(a.id);
+                    }
+                  }}
+                >
+                  Decline offer
+                </Button>
+              </div>
+            )}
           </Alert>
+          <MutationFeedback
+            error={acceptOffer.error}
+            isSuccess={acceptOffer.isSuccess}
+            successMessage="Accepted. We have told the company."
+          />
+          <MutationFeedback
+            error={declineOffer.error}
+            isSuccess={declineOffer.isSuccess}
+            successMessage="Declined. We have told the company."
+          />
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-        <p className="text-xs text-slate-500">
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+        <p className="text-xs font-medium text-slate-400">
           Applied {formatDate(a.appliedAt)} · updated {formatRelative(a.lastStageChangeAt)}
         </p>
         <div className="flex flex-wrap gap-2">
@@ -214,21 +260,21 @@ function ApplicationCard({ application: a }: { application: TrackedApplication }
                 <p className="mt-1 text-sm text-brand-800">{company.companyIntro}</p>
               )}
               <p className="mt-2 text-xs text-brand-700">
-                All contact goes through the BK Talent Connect team — we&rsquo;ll be in touch with
+                All contact goes through the BK Talent Connect team. We&rsquo;ll be in touch with
                 next steps.
               </p>
             </div>
           )}
 
-          <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">History</p>
-          <ul className="mt-2 space-y-2">
+          <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">History</p>
+          <ul className="mt-2.5 space-y-2.5">
             {a.timeline.map((event, index) => (
               <li key={index} className="flex gap-3 text-sm">
                 <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-brand-400" />
                 <span className="text-slate-700">
-                  {event.toStage.replace(/_/g, ' ').toLowerCase()}
+                  <span className="font-medium capitalize">{event.toStage.replace(/_/g, ' ').toLowerCase()}</span>
                   <span className="ml-2 text-xs text-slate-400">{formatDate(event.at)}</span>
-                  {event.note && <span className="block text-xs text-slate-500">{event.note}</span>}
+                  {event.note && <span className="mt-0.5 block text-xs text-slate-500">{event.note}</span>}
                 </span>
               </li>
             ))}
@@ -265,7 +311,7 @@ function InterviewPanel({ applicationId }: { applicationId: string }) {
     <div className="mt-4 rounded-lg border border-brand-200 bg-brand-50 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-semibold tracking-wide text-brand-700 uppercase">
+          <p className="text-[11px] font-semibold tracking-wide text-brand-700 uppercase">
             Your interview
           </p>
           <p className="mt-1 font-semibold text-brand-900">{formatDateTime(interview.scheduledAt)}</p>
@@ -326,20 +372,20 @@ function Timeline({ currentStage, label }: { currentStage: string; label: string
   const notSelected = currentStage === 'NOT_SELECTED';
 
   return (
-    <ol className="mt-5 flex gap-1">
+    <ol className="mt-5 flex gap-1.5">
       {CANDIDATE_TIMELINE_STEPS.map((step, index) => {
         const reached = index <= currentIndex;
         const isCurrent = index === currentIndex;
         return (
           <li key={step} className="flex-1">
             <div
-              className={`h-1.5 rounded-full ${
+              className={`h-1.5 rounded-full transition-colors ${
                 reached ? (notSelected && isCurrent ? 'bg-slate-400' : 'bg-brand-600') : 'bg-slate-200'
               }`}
             />
             <p
               className={`mt-1.5 text-[11px] leading-tight ${
-                isCurrent ? 'font-medium text-brand-800' : 'text-slate-400'
+                isCurrent ? 'font-semibold text-brand-800' : 'text-slate-400'
               }`}
             >
               {step}

@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   WORK_TYPES,
   EDUCATION_REQUIREMENTS,
@@ -36,6 +36,7 @@ import { SkillsInput } from '../../components/skills-input.js';
 import { QueryState } from '../../components/query-state.js';
 import { MutationFeedback } from '../../components/mutation-feedback.js';
 import { Alert, Badge, Button, Card, Field, Input, Select, Textarea } from '../../components/ui/index.js';
+import { EMPLOYER_CARD } from './employer-style.js';
 
 type Draft = UpdateJobInput;
 
@@ -54,6 +55,10 @@ function draftFrom(job: EmployerJob): Draft {
     functionSlug: job.functionSlug ?? undefined,
     citySlug: job.citySlug ?? undefined,
     state: job.state ?? undefined,
+    additionalLocations: job.additionalLocations.map((l) => ({
+      citySlug: l.citySlug ?? '',
+      state: l.state,
+    })),
     workType: (job.workType as Draft['workType']) ?? undefined,
     minExperience: job.minExperience ?? undefined,
     maxExperience: job.maxExperience ?? undefined,
@@ -79,6 +84,7 @@ function equal(a: unknown, b: unknown) {
 
 export function JobEditorPage() {
   const { id = '' } = useParams();
+  const navigate = useNavigate();
   const { data: job, isPending, error: loadError, refetch } = useEmployerJob(id);
   const { data: taxonomy } = useTaxonomy();
 
@@ -90,6 +96,7 @@ export function JobEditorPage() {
   const [draft, setDraft] = useState<Draft>({});
   const [confirmMaterial, setConfirmMaterial] = useState<string[] | null>(null);
   const [confirmingClose, setConfirmingClose] = useState(false);
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
   const closeImpact = useCloseImpact(id, confirmingClose);
 
   useEffect(() => {
@@ -172,15 +179,18 @@ export function JobEditorPage() {
       <StatusBanner job={job} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold text-brand-900">{job.title}</h1>
-          <Badge tone={JOB_STATUS_TONE[job.status] ?? 'slate'}>
-            {JOB_STATUS_LABEL[job.status] ?? job.status}
-          </Badge>
+        <div>
+          <p className="text-xs font-semibold tracking-widest text-pub-blue uppercase">Job Posting</p>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-brand-900">{job.title}</h1>
+            <Badge tone={JOB_STATUS_TONE[job.status] ?? 'slate'}>
+              {JOB_STATUS_LABEL[job.status] ?? job.status}
+            </Badge>
+          </div>
         </div>
         <Link
           to={`/employer/jobs/${job.id}/applicants`}
-          className="inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-4 text-sm font-medium text-brand-700 hover:bg-slate-50"
+          className="inline-flex min-h-11 items-center rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white shadow-sm shadow-brand-900/10 transition-colors hover:bg-brand-700"
         >
           View applicants
         </Link>
@@ -254,7 +264,35 @@ export function JobEditorPage() {
         </Alert>
       )}
 
-      <Card>
+      {confirmingSubmit && (
+        <Alert tone="warning" title="Submit this posting for review?">
+          <p>
+            Our team will review it, usually within a day, before it appears to candidates.
+          </p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <Button
+              onClick={async () => {
+                if (await save()) {
+                  submit.mutate(undefined, {
+                    onSuccess: () => {
+                      setConfirmingSubmit(false);
+                      navigate('/employer');
+                    },
+                  });
+                }
+              }}
+              loading={submit.isPending || update.isPending}
+            >
+              Submit for review
+            </Button>
+            <Button variant="secondary" onClick={() => setConfirmingSubmit(false)}>
+              Cancel
+            </Button>
+          </div>
+        </Alert>
+      )}
+
+      <Card className={EMPLOYER_CARD}>
         <fieldset disabled={readOnly} className="space-y-5">
           {readOnly && (
             <p className="text-sm text-slate-500">
@@ -263,6 +301,10 @@ export function JobEditorPage() {
                 : 'This posting is closed. Reopen it to make changes.'}
             </p>
           )}
+
+          <h2 className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+            Role basics
+          </h2>
 
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Job title" htmlFor="title" required>
@@ -316,7 +358,7 @@ export function JobEditorPage() {
             </Field>
             <Field label="City" htmlFor="citySlug" required hint={draft.state ? undefined : 'Choose a state first'}>
               <Select id="citySlug" value={draft.citySlug ?? ''} disabled={!draft.state} onChange={(e) => set('citySlug', e.target.value)}>
-                <option value="">{draft.state ? 'Select' : '—'}</option>
+                <option value="">{draft.state ? 'Select' : '-'}</option>
                 {cities.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
               </Select>
             </Field>
@@ -327,6 +369,19 @@ export function JobEditorPage() {
               </Select>
             </Field>
           </div>
+
+          <AdditionalLocations
+            states={taxonomy?.states ?? []}
+            cities={taxonomy?.cities ?? []}
+            primaryCitySlug={draft.citySlug ?? ''}
+            primaryState={draft.state ?? ''}
+            value={draft.additionalLocations ?? []}
+            onChange={(locations) => set('additionalLocations', locations)}
+          />
+
+          <h2 className="border-t border-slate-100 pt-5 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+            Requirements
+          </h2>
 
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Minimum experience" htmlFor="minExperience" required hint="Years">
@@ -354,7 +409,7 @@ export function JobEditorPage() {
             />
           </Field>
 
-          <Field label="Good to have" htmlFor="goodToHaveSkills" hint="Optional — nice, but not a dealbreaker">
+          <Field label="Good to have" htmlFor="goodToHaveSkills" hint="Optional - nice, but not a dealbreaker">
             <SkillsInput
               id="goodToHaveSkills"
               value={draft.goodToHaveSkills ?? []}
@@ -365,8 +420,12 @@ export function JobEditorPage() {
             />
           </Field>
 
+          <h2 className="border-t border-slate-100 pt-5 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+            Role description
+          </h2>
+
           <Field
-            label="Role description"
+            label="Responsibilities"
             htmlFor="description"
             required
             hint="What the person will own, the team, the plant. Candidates read this before applying."
@@ -389,18 +448,27 @@ export function JobEditorPage() {
             </Alert>
           )}
 
+          <h2 className="border-t border-slate-100 pt-5 text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+            Joining details
+          </h2>
+
           <Field label="Target joining date" htmlFor="targetJoiningDate" hint="Optional">
             <Input id="targetJoiningDate" type="date" value={draft.targetJoiningDate ?? ''} onChange={(e) => set('targetJoiningDate', e.target.value)} />
           </Field>
 
           <div className="border-t border-slate-100 pt-5">
-            <Alert tone="info" title="🔒 Your salary band is confidential">
-              It is visible to the BK Talent Connect team only, and is never shown to candidates. We
-              use it to make sure the people we send you are in range.
-            </Alert>
-            <div className="mt-4 grid gap-5 sm:grid-cols-2">
-              <SalaryField label="Band minimum" id="salaryBandMinLpa" value={draft.salaryBandMinLpa} onChange={(v) => set('salaryBandMinLpa', v)} />
-              <SalaryField label="Band maximum" id="salaryBandMaxLpa" value={draft.salaryBandMaxLpa} onChange={(v) => set('salaryBandMaxLpa', v)} />
+            <h2 className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+              Private salary band
+            </h2>
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+              <Alert tone="info" title="🔒 Your salary band is confidential">
+                It is visible to the BK Talent Connect team only, and is never shown to candidates. We
+                use it to make sure the people we send you are in range.
+              </Alert>
+              <div className="mt-4 grid gap-5 sm:grid-cols-2">
+                <SalaryField label="Band minimum" id="salaryBandMinLpa" value={draft.salaryBandMinLpa} onChange={(v) => set('salaryBandMinLpa', v)} />
+                <SalaryField label="Band maximum" id="salaryBandMaxLpa" value={draft.salaryBandMaxLpa} onChange={(v) => set('salaryBandMaxLpa', v)} />
+              </div>
             </div>
           </div>
         </fieldset>
@@ -441,12 +509,7 @@ export function JobEditorPage() {
                 Save
               </Button>
               {!live && (
-                <Button
-                  onClick={async () => {
-                    if (await save()) submit.mutate();
-                  }}
-                  loading={submit.isPending || update.isPending}
-                >
+                <Button onClick={() => setConfirmingSubmit(true)} loading={submit.isPending || update.isPending}>
                   Submit for review
                 </Button>
               )}
@@ -491,6 +554,129 @@ function StatusBanner({ job }: { job: EmployerJob }) {
     default:
       return null;
   }
+}
+
+type LocationEntry = { citySlug: string; state: string };
+
+/**
+ * Add/remove UX for hiring locations beyond the one required primary
+ * State+City pair above. Mirrors that pair's own State-then-City pattern —
+ * City stays disabled until a State is picked, and changing the State clears
+ * a City that no longer belongs to it.
+ */
+function AdditionalLocations({
+  states,
+  cities,
+  primaryCitySlug,
+  primaryState,
+  value,
+  onChange,
+}: {
+  states: readonly string[];
+  cities: readonly { slug: string; name: string; state: string | null }[];
+  primaryCitySlug: string;
+  primaryState: string;
+  value: readonly LocationEntry[];
+  onChange: (locations: LocationEntry[]) => void;
+}) {
+  const [state, setState] = useState('');
+  const [citySlug, setCitySlug] = useState('');
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
+
+  const cityOptions = cities.filter((c) => c.state === (state || '') || c.state === null);
+  const atLimit = value.length >= LIMITS.job.additionalLocations.max;
+
+  function add() {
+    if (!state || !citySlug) return;
+    const isDuplicate =
+      (citySlug === primaryCitySlug && state === primaryState) ||
+      value.some((l) => l.citySlug === citySlug && l.state === state);
+    if (isDuplicate) {
+      setDuplicateError('That location is already on this posting.');
+      return;
+    }
+    setDuplicateError(null);
+    onChange([...value, { citySlug, state }]);
+    setState('');
+    setCitySlug('');
+  }
+
+  function remove(index: number) {
+    onChange(value.filter((_, i) => i !== index));
+  }
+
+  const nameFor = (slug: string) => cities.find((c) => c.slug === slug)?.name ?? slug;
+
+  return (
+    <div className="border-t border-slate-100 pt-5">
+      <h2 className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+        Additional hiring locations
+      </h2>
+      <p className="mt-1 text-sm text-slate-500">
+        Optional — add every other city this role is open in, beyond the primary one above.
+      </p>
+
+      {value.length > 0 && (
+        <ul className="mt-3 flex flex-wrap gap-2">
+          {value.map((loc, index) => (
+            <li
+              key={`${loc.citySlug}-${loc.state}`}
+              className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 py-1 pr-1.5 pl-3 text-sm text-brand-800"
+            >
+              {nameFor(loc.citySlug)}, {loc.state}
+              <button
+                type="button"
+                onClick={() => remove(index)}
+                aria-label={`Remove ${nameFor(loc.citySlug)}, ${loc.state}`}
+                className="rounded-full px-1 text-brand-400 hover:bg-brand-100 hover:text-brand-700"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {atLimit ? (
+        <p className="mt-3 text-xs text-slate-500">Maximum {LIMITS.job.additionalLocations.max} additional locations.</p>
+      ) : (
+        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <Field label="State" htmlFor="extra-location-state" error={duplicateError ?? undefined}>
+            <Select
+              id="extra-location-state"
+              value={state}
+              onChange={(e) => {
+                setState(e.target.value);
+                const ok = cities.some((c) => c.slug === citySlug && (c.state === e.target.value || c.state === null));
+                if (!ok) setCitySlug('');
+                setDuplicateError(null);
+              }}
+            >
+              <option value="">Select</option>
+              {states.map((s) => <option key={s} value={s}>{s}</option>)}
+            </Select>
+          </Field>
+          <Field label="City" htmlFor="extra-location-city" hint={state ? undefined : 'Choose a state first'}>
+            <Select
+              id="extra-location-city"
+              value={citySlug}
+              disabled={!state}
+              onChange={(e) => {
+                setCitySlug(e.target.value);
+                setDuplicateError(null);
+              }}
+            >
+              <option value="">{state ? 'Select' : '-'}</option>
+              {cityOptions.map((c) => <option key={c.slug} value={c.slug}>{c.name}</option>)}
+            </Select>
+          </Field>
+          <Button type="button" variant="secondary" disabled={!state || !citySlug} onClick={add}>
+            Add location
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function SalaryField({

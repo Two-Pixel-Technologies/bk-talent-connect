@@ -97,16 +97,16 @@ export function NotificationBell() {
            * 22rem dropdown positioned right-0 overflows a 360px viewport and
            * takes the whole page sideways with it.
            */
-          className="fixed inset-x-2 top-16 z-40 max-h-[70vh] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-88"
+          className="fixed inset-x-2 top-16 z-40 max-h-[70vh] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-900/10 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-88"
         >
-          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-slate-800">Notifications</h2>
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5">
+            <h2 className="text-sm font-semibold text-slate-900">Notifications</h2>
             {count > 0 && (
               <button
                 type="button"
                 onClick={() => markAllRead.mutate()}
                 disabled={markAllRead.isPending}
-                className="text-xs font-medium text-brand-700 hover:underline disabled:opacity-50"
+                className="text-xs font-semibold text-brand-700 hover:underline disabled:opacity-50"
               >
                 Mark all read
               </button>
@@ -127,23 +127,21 @@ export function NotificationBell() {
             </p>
           )}
 
-          <ul>
+          <ul className="divide-y divide-slate-100">
             {items.map((item) => (
               <li key={item.id}>
                 <button
                   type="button"
                   onClick={() => openItem(item)}
-                  className={`flex w-full flex-col gap-1 border-b border-slate-100 px-4 py-3 text-left transition-colors hover:bg-slate-50 ${
-                    item.read ? '' : 'bg-brand-50/50'
+                  className={`flex w-full flex-col gap-1 px-4 py-3.5 text-left transition-colors hover:bg-slate-50 ${
+                    item.read ? '' : 'bg-brand-50/40'
                   }`}
                 >
                   <span className="flex items-start gap-2">
-                    {!item.read && (
-                      <span
-                        aria-hidden="true"
-                        className="mt-1.5 size-2 shrink-0 rounded-full bg-brand-600"
-                      />
-                    )}
+                    <span
+                      aria-hidden="true"
+                      className={`mt-1.5 size-2 shrink-0 rounded-full ${item.read ? 'bg-transparent' : 'bg-brand-600'}`}
+                    />
                     <span
                       className={`text-sm ${item.read ? 'text-slate-700' : 'font-semibold text-slate-900'}`}
                     >
@@ -151,9 +149,9 @@ export function NotificationBell() {
                     </span>
                   </span>
                   {item.body && (
-                    <span className="pl-4 text-xs leading-relaxed text-slate-600">{item.body}</span>
+                    <span className="pl-4 text-xs leading-relaxed text-slate-500">{item.body}</span>
                   )}
-                  <span className="pl-4 text-[11px] text-slate-400">
+                  <span className="pl-4 text-[11px] font-medium text-slate-400">
                     {formatRelative(item.createdAt)}
                   </span>
                 </button>

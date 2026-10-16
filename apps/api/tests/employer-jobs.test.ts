@@ -289,6 +289,100 @@ describe('contact details in the description', () => {
   });
 });
 
+describe('additional hiring locations', () => {
+  let locJobId: string;
+  let candidateCookie: string;
+
+  beforeAll(async () => {
+    const created = await asApproved(request(app).post('/api/employer/jobs')).send({
+      title: 'Maintenance Technician',
+    });
+    locJobId = created.body.id;
+    await asApproved(request(app).patch(`/api/employer/jobs/${locJobId}`)).send(COMPLETE_JOB);
+
+    const candidate = await request(app).post('/api/auth/register/candidate').set(CSRF_HEADER).send({
+      fullName: 'Location Test Candidate',
+      email: 'location-test@example.com',
+      mobile: '9876543299',
+      password: 'correct-horse-9',
+      consentToShare: true,
+    });
+    candidateCookie = sessionCookie(candidate);
+    const candidateRepo = await import('../src/repositories/candidate.repo.js');
+    const me = await request(app).get('/api/auth/me').set('Cookie', candidateCookie);
+    candidateRepo.setStatus(candidateRepo.findByUserId(me.body.id)!.id, 'APPROVED');
+  });
+
+  it('adds extra locations alongside the primary one', async () => {
+    const res = await asApproved(request(app).patch(`/api/employer/jobs/${locJobId}`)).send({
+      additionalLocations: [
+        { citySlug: 'mumbai', state: 'Maharashtra' },
+        { citySlug: 'ahmedabad', state: 'Gujarat' },
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.job.additionalLocations).toHaveLength(2);
+    expect(res.body.job.additionalLocations.map((l: { citySlug: string }) => l.citySlug)).toEqual(
+      expect.arrayContaining(['mumbai', 'ahmedabad']),
+    );
+    // The primary location is untouched by adding extras.
+    expect(res.body.job.citySlug).toBe('pune');
+  });
+
+  it('refuses a duplicate of the primary location', async () => {
+    const res = await asApproved(request(app).patch(`/api/employer/jobs/${locJobId}`)).send({
+      additionalLocations: [{ citySlug: 'pune', state: 'Maharashtra' }],
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('refuses the same extra location listed twice', async () => {
+    const res = await asApproved(request(app).patch(`/api/employer/jobs/${locJobId}`)).send({
+      additionalLocations: [
+        { citySlug: 'mumbai', state: 'Maharashtra' },
+        { citySlug: 'mumbai', state: 'Maharashtra' },
+      ],
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('replaces the whole extra-location list on each save, not appends', async () => {
+    await asApproved(request(app).patch(`/api/employer/jobs/${locJobId}`)).send({
+      additionalLocations: [{ citySlug: 'nashik', state: 'Maharashtra' }],
+    });
+    const res = await asApproved(request(app).get(`/api/employer/jobs/${locJobId}`));
+    expect(res.body.additionalLocations).toHaveLength(1);
+    expect(res.body.additionalLocations[0].citySlug).toBe('nashik');
+  });
+
+  it('is visible on the employer-owner view, built from the same commonFields every audience shares', async () => {
+    const owner = await asApproved(request(app).get(`/api/employer/jobs/${locJobId}`));
+    expect(owner.body.additionalLocations[0]).toMatchObject({ citySlug: 'nashik', state: 'Maharashtra' });
+  });
+
+  it('a legacy job with no extra locations reports an empty list, not an error', async () => {
+    const legacy = await asApproved(request(app).post('/api/employer/jobs')).send({
+      title: 'Legacy Single-Location Role',
+    });
+    const res = await asApproved(request(app).get(`/api/employer/jobs/${legacy.body.id}`));
+    expect(res.status).toBe(200);
+    expect(res.body.additionalLocations).toEqual([]);
+  });
+
+  it('a candidate filtering by city finds a job hiring there only as an extra location', async () => {
+    const jobRepo = await import('../src/repositories/job.repo.js');
+    jobRepo.setStatus(locJobId, 'APPROVED', ['PENDING_APPROVAL', 'DRAFT'], {
+      publishedAt: new Date().toISOString(),
+    });
+
+    const res = await request(app)
+      .get('/api/candidate/jobs?city=nashik')
+      .set('Cookie', candidateCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.items.some((j: { id: string }) => j.id === locJobId)).toBe(true);
+  });
+});
+
 describe('sort allowlist', () => {
   it('rejects an unknown sort key rather than silently ignoring it', async () => {
     const res = await asApproved(request(app).get('/api/employer/jobs?sort=salary_band_min'));

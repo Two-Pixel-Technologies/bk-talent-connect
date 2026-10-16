@@ -89,6 +89,47 @@ describe('registration', () => {
 
     expect(res.status).toBe(400);
   });
+
+  /**
+   * The exact boundary, both sides, for both account types that self-register.
+   * LIMITS.password.min is 8 — a one-character slip in either direction here
+   * (a schema still reading the old 10, or a web form capping maxLength too
+   * low) would be the kind of bug a vaguer "enforces a minimum" test cannot
+   * catch.
+   */
+  it('rejects a 7-character password and accepts an 8-character one — candidate', async () => {
+    const short = await request(app)
+      .post('/api/auth/register/candidate')
+      .set(CSRF_HEADER)
+      .send({ ...CANDIDATE, email: 'pw7-candidate@example.com', password: '1234567' });
+    expect(short.status).toBe(400);
+    expect(short.body.error.fields).toContainEqual(
+      expect.objectContaining({ path: 'password' }),
+    );
+
+    const exact = await request(app)
+      .post('/api/auth/register/candidate')
+      .set(CSRF_HEADER)
+      .send({ ...CANDIDATE, email: 'pw8-candidate@example.com', password: '12345678' });
+    expect(exact.status).toBe(201);
+  });
+
+  it('rejects a 7-character password and accepts an 8-character one — employer', async () => {
+    const short = await request(app)
+      .post('/api/auth/register/employer')
+      .set(CSRF_HEADER)
+      .send({ ...EMPLOYER, email: 'pw7-employer@example.com', password: '1234567' });
+    expect(short.status).toBe(400);
+    expect(short.body.error.fields).toContainEqual(
+      expect.objectContaining({ path: 'password' }),
+    );
+
+    const exact = await request(app)
+      .post('/api/auth/register/employer')
+      .set(CSRF_HEADER)
+      .send({ ...EMPLOYER, email: 'pw8-employer@example.com', password: '12345678' });
+    expect(exact.status).toBe(201);
+  });
 });
 
 describe('login', () => {
@@ -236,6 +277,57 @@ describe('password change', () => {
       .send({ currentPassword: 'wrong', newPassword: 'brand-new-password' });
 
     expect(res.status).toBe(400);
+  });
+
+  it('rejects a 7-character new password and accepts an 8-character one', async () => {
+    const email = 'pw-change-boundary@example.com';
+    const password = 'original-pass-1';
+    await request(app)
+      .post('/api/auth/register/candidate')
+      .set(CSRF_HEADER)
+      .send({ ...CANDIDATE, email, password });
+
+    const login = await request(app)
+      .post('/api/auth/login')
+      .set(CSRF_HEADER)
+      .send({ email, password });
+    const session = sessionCookie(login);
+
+    const short = await request(app)
+      .post('/api/auth/change-password')
+      .set(CSRF_HEADER)
+      .set('Cookie', session)
+      .send({ currentPassword: password, newPassword: '1234567' });
+    expect(short.status).toBe(400);
+    expect(short.body.error.fields).toContainEqual(
+      expect.objectContaining({ path: 'newPassword' }),
+    );
+
+    const exact = await request(app)
+      .post('/api/auth/change-password')
+      .set(CSRF_HEADER)
+      .set('Cookie', session)
+      .send({ currentPassword: password, newPassword: '12345678' });
+    expect(exact.status).toBe(204);
+  });
+});
+
+describe('login does not itself enforce a password length', () => {
+  /**
+   * Plan requirement: "login should validate required input and let
+   * authentication determine whether credentials are correct" — a legacy
+   * account from before this minimum existed must still be able to attempt
+   * login with a short password and get a normal wrong-credentials answer,
+   * not a validation error that never reaches the password check.
+   */
+  it('answers a one-character password with the generic wrong-credentials error, not a validation error', async () => {
+    const res = await request(app)
+      .post('/api/auth/login')
+      .set(CSRF_HEADER)
+      .send({ email: CANDIDATE.email, password: 'x' });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error.code).toBe('UNAUTHENTICATED');
   });
 });
 

@@ -67,7 +67,6 @@ function computeCompletion(
     currentJobTitle: Boolean(profile.current_job_title),
     yearsOfExperience: profile.years_of_experience != null,
     sectorSlug: profile.sector_id != null,
-    functionSlug: profile.functional_area_id != null,
     educationLevel: Boolean(profile.education_level),
     qualification: Boolean(profile.qualification),
     qualificationYear: profile.qualification_year != null,
@@ -112,7 +111,6 @@ function toColumns(input: UpdateProfileInput): Record<string, unknown> {
   set('current_job_title', input.currentJobTitle);
   set('current_employer', input.currentEmployer);
   set('years_of_experience', input.yearsOfExperience);
-  set('education_level', input.educationLevel);
   set('qualification', input.qualification);
   set('qualification_year', input.qualificationYear);
   set('career_summary', input.careerSummary);
@@ -128,9 +126,22 @@ function toColumns(input: UpdateProfileInput): Record<string, unknown> {
     patch.expected_salary_max = lpaToRupees(input.expectedSalaryMaxLpa);
 
   if (input.citySlug !== undefined) patch.city_id = taxonomyRepo.idBySlug('city', input.citySlug);
-  if (input.sectorSlug !== undefined) patch.sector_id = taxonomyRepo.idBySlug('sector', input.sectorSlug);
+  if (input.sectorSlug !== undefined) {
+    patch.sector_id = taxonomyRepo.idBySlug('sector', input.sectorSlug);
+    // Only the taxonomy's 'other' row has a companion free-text value. Moving
+    // away from it (picking a real sector after having picked Other) must not
+    // leave the old custom text behind under the new selection.
+    if (input.sectorSlug !== 'other') patch.sector_other = null;
+  }
+  if (input.sectorOther !== undefined) patch.sector_other = input.sectorOther === '' ? null : input.sectorOther;
   if (input.functionSlug !== undefined)
     patch.functional_area_id = taxonomyRepo.idBySlug('functional_area', input.functionSlug);
+  if (input.educationLevel !== undefined) {
+    patch.education_level = input.educationLevel;
+    if (input.educationLevel !== 'OTHER') patch.education_level_other = null;
+  }
+  if (input.educationLevelOther !== undefined)
+    patch.education_level_other = input.educationLevelOther === '' ? null : input.educationLevelOther;
 
   return patch;
 }
@@ -256,8 +267,10 @@ export function submitProfile(userId: string): void {
     currentJobTitle: profile.current_job_title ?? '',
     yearsOfExperience: profile.years_of_experience ?? undefined,
     sectorSlug: relations.sectorSlug ?? '',
+    sectorOther: profile.sector_other ?? undefined,
     functionSlug: relations.functionSlug ?? '',
     educationLevel: profile.education_level ?? undefined,
+    educationLevelOther: profile.education_level_other ?? undefined,
     qualification: profile.qualification ?? '',
     qualificationYear: profile.qualification_year ?? undefined,
     careerSummary: profile.career_summary ?? '',

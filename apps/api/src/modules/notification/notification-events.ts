@@ -292,6 +292,66 @@ export function stageChanged(input: {
         });
         break;
 
+      // The candidate's own decision on an offer — the employer who made it
+      // needs to know which way it went.
+      case 'OFFER_ACCEPTED':
+        notify({
+          event: 'OFFER_ACCEPTED',
+          parties: { EMPLOYER: p.employerUserId },
+          title: `${p.candidateName} accepted the offer`,
+          body: `${p.jobTitle}.`,
+          perRole: {
+            ADMIN: {
+              title: `${p.candidateName} accepted an offer`,
+              body: `${p.jobTitle} at ${p.companyName}.`,
+            },
+          },
+          entityType: 'APPLICATION',
+          entityId: input.applicationId,
+          excludeUserId: input.actorId,
+        });
+        break;
+
+      case 'OFFER_DECLINED':
+        notify({
+          event: 'OFFER_DECLINED',
+          parties: { EMPLOYER: p.employerUserId },
+          title: `${p.candidateName} declined the offer`,
+          body: `${p.jobTitle}.`,
+          perRole: {
+            ADMIN: {
+              title: `${p.candidateName} declined an offer`,
+              body: `${p.jobTitle} at ${p.companyName}.`,
+            },
+          },
+          entityType: 'APPLICATION',
+          entityId: input.applicationId,
+          excludeUserId: input.actorId,
+        });
+        break;
+
+      // The employer confirming joining — the candidate is told it was
+      // recorded.
+      case 'JOINED':
+        notify({
+          event: 'CANDIDATE_JOINED',
+          parties: { CANDIDATE: p.candidateUserId },
+          title: 'Your joining has been recorded',
+          // Candidate job views are anonymous by design — never name the
+          // employer in a candidate-facing notification body.
+          body: `${p.jobTitle}. Congratulations, and do get in touch if we can help again.`,
+          perRole: {
+            ADMIN: {
+              title: `${p.candidateName} joined`,
+              body: `${p.jobTitle} at ${p.companyName}.`,
+            },
+          },
+          entityType: 'APPLICATION',
+          entityId: input.applicationId,
+          excludeUserId: input.actorId,
+        });
+        break;
+
       default:
         break;
     }
@@ -413,6 +473,42 @@ export function interviewConfirmed(input: {
     perRole: {
       EMPLOYER: {
         title: input.rescheduled ? 'Interview moved' : 'Interview confirmed',
+        body: `${p.candidateName} for ${p.jobTitle} — ${when}.`,
+      },
+    },
+    entityType: 'INTERVIEW',
+    entityId: input.interviewId,
+  });
+}
+
+/**
+ * The 24-hour-before reminder — p8's one row with no Portal column (see
+ * NOTIFICATION_MATRIX's INTERVIEW_REMINDER entry), so notify() writes no
+ * bell row here, only the email/WhatsApp dispatch.
+ *
+ * Called only from the sweep in lib/interview-reminder-sweep.ts, once per
+ * interview, on an interview row already atomically claimed via
+ * interview.repo.ts's claimDueReminders — this function itself does not
+ * re-check reminder_sent_at, so it must never be called outside that path.
+ */
+export function interviewReminder(input: {
+  readonly applicationId: string;
+  readonly interviewId: string;
+  readonly scheduledAt: string;
+}): void {
+  const p = partiesFor(input.applicationId);
+  if (!p) return;
+
+  const when = formatDateTime(input.scheduledAt);
+
+  notify({
+    event: 'INTERVIEW_REMINDER',
+    parties: { CANDIDATE: p.candidateUserId, EMPLOYER: p.employerUserId },
+    title: 'Interview tomorrow',
+    body: `${p.jobTitle} — ${when}. Full details are on your interview page.`,
+    perRole: {
+      EMPLOYER: {
+        title: 'Interview tomorrow',
         body: `${p.candidateName} for ${p.jobTitle} — ${when}.`,
       },
     },

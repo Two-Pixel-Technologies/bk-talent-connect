@@ -88,7 +88,25 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     ...(options.signal ? { signal: options.signal } : {}),
   };
 
-  const response = await fetch(`/api${path}`, init);
+  let response: Response;
+  try {
+    response = await fetch(`/api${path}`, init);
+  } catch (err) {
+    // fetch() itself rejects for a network-level failure — offline, DNS,
+    // the server unreachable, a dropped connection — before any HTTP
+    // response exists to build an ApiError from. Without this, that reached
+    // every caller as a raw TypeError, which `err instanceof ApiError`
+    // checks (login.tsx and every other form) silently swallow into no
+    // error at all: the button just stops loading with zero explanation.
+    // A deliberate abort (the caller's own AbortSignal) is not a failure —
+    // let it propagate as-is so callers that already handle cancellation
+    // are not told it was a server problem.
+    if (err instanceof DOMException && err.name === 'AbortError') throw err;
+    throw new ApiError(0, {
+      code: 'INTERNAL',
+      message: "We couldn't reach the server right now. Please try again.",
+    });
+  }
 
   checkVersion(response);
 

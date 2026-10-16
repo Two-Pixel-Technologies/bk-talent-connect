@@ -87,7 +87,7 @@ export function AccountControls({
           </Alert>
         ) : (
           <Button
-            variant="ghost"
+            variant="secondary"
             className="px-3 text-xs"
             loading={resetPassword.isPending}
             onClick={() => {
@@ -148,8 +148,8 @@ export function AccountControls({
         </div>
       ) : (
         <Button
-          variant="ghost"
-          className="mt-3 px-3 text-xs text-accent-600"
+          variant="secondary"
+          className="mt-3 border-accent-200 px-3 text-xs text-accent-700 hover:border-accent-300 hover:bg-accent-50"
           onClick={() => setConfirming(true)}
         >
           Suspend account

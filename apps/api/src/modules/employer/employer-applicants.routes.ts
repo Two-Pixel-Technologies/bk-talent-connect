@@ -10,6 +10,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import {
   APPLICATION_STAGES,
+  INTERVIEW_MODES,
   LIMITS,
   OUTCOME_REASON_CODES,
   allowedNextStages,
@@ -26,7 +27,7 @@ import { loadRelations as loadCandidateRelations } from '../candidate/candidate.
 import { toEmployerView as toEmployerCandidateView } from '../../serializers/candidate.serializer.js';
 import { toEmployerView as toEmployerApplicationView } from '../../serializers/application.serializer.js';
 import { toEmployerOwnerView } from '../../serializers/job.serializer.js';
-import { sendSerialized, buildPage } from '../../lib/respond.js';
+import { sendSerialized, sendNoContent, buildPage } from '../../lib/respond.js';
 import { requireAuth, requireRole, currentUser } from '../../middleware/auth.js';
 import { badRequest, forbidden, notFound } from '../../lib/errors.js';
 
@@ -35,15 +36,31 @@ export const employerApplicantsRouter = Router();
 employerApplicantsRouter.use(requireAuth, requireRole('EMPLOYER'));
 
 /**
- * Stage changes an employer may make on their own. Interview scheduling is
- * deliberately absent: BK coordinates every interview, so an employer requests
- * one (P6) rather than booking it.
+ * Plain stage changes an employer may make through this generic route.
+ *
+ * INTERVIEW_SCHEDULED and INTERVIEWED are deliberately absent even though the
+ * employer now owns both — they must carry their interview facts with them
+ * (a time, place, mode, or the fact the interview actually happened), so they
+ * go through the dedicated schedule/complete-interview routes below instead
+ * of a bare stage-set. NOT_SELECTED covers rejecting both before and after an
+ * interview is booked (the matrix allows it from several source stages).
+ * JOINED is the employer confirming the candidate actually started.
+ *
+ * APPLIED is here only as a correction target — UNDER_REVIEW → APPLIED, the
+ * one regression that lands somewhere an employer could not otherwise set
+ * directly (SHORTLISTED and the other regression targets were already in
+ * this list for their forward-progression uses). This list only says which
+ * target stages the route will consider at all; whether the specific
+ * from→to move is legal for an employer is still decided by canTransition
+ * (stages.ts) in applicationService.changeStage below.
  */
 const EMPLOYER_STAGES: readonly ApplicationStage[] = [
+  'APPLIED',
   'UNDER_REVIEW',
   'SHORTLISTED',
   'NOT_SELECTED',
   'OFFER_MADE',
+  'JOINED',
 ];
 
 const listSchema = z.object({
@@ -142,7 +159,7 @@ const stageSchema = z.object({
   outcomeReasonCode: z.enum(OUTCOME_REASON_CODES).optional(),
 });
 
-/** Stages an employer may not set, with the reason they cannot. */
+/** Stages an employer may not set through this generic route, with why. */
 const INTERVIEW_STAGES: readonly string[] = ['INTERVIEW_SCHEDULED', 'INTERVIEWED'];
 
 employerApplicantsRouter.post('/applications/:id/stage', (req, res) => {
@@ -153,8 +170,8 @@ employerApplicantsRouter.post('/applications/:id/stage', (req, res) => {
   if (!EMPLOYER_STAGES.includes(input.stage)) {
     throw forbidden(
       INTERVIEW_STAGES.includes(input.stage)
-        ? 'Interviews are arranged by the BK Talent Connect team. Shortlist the candidate and we will take it from there.'
-        : 'That is not a change you can make. Our team handles this stage.',
+        ? 'Arrange or complete the interview from the interview panel instead. The stage moves with it.'
+        : 'That is not a change you can make.',
     );
   }
 
@@ -238,4 +255,58 @@ employerApplicantsRouter.post('/applications/:id/interview/confirm', (req, res) 
 
   interviewRepo.confirm(interview.id, 'EMPLOYER');
   sendSerialized(res, { interview: toPartyView(interviewRepo.findById(interview.id)!, 'EMPLOYER') });
+});
+
+const scheduleSchema = z.object({
+  scheduledAt: z.string().min(1, 'Choose a date and time.'),
+  durationMinutes: z.number().int().min(10).max(480).default(45),
+  mode: z.enum(INTERVIEW_MODES),
+  locationOrLink: z.string().trim().min(1, 'Add the address or the meeting link.').max(500),
+  instructions: z.string().trim().max(LIMITS.note.max).optional(),
+});
+
+/**
+ * Booking the interview directly — previously admin-only, now the employer's
+ * own action (see stages.ts). Reuses the same scheduleInterview domain logic
+ * BK's coordination screen used, parameterised by role instead of hardcoded
+ * to ADMIN, so the matrix check, the reschedule-supersedes-rather-than-
+ * mutates behaviour and the notification are all identical to before.
+ */
+employerApplicantsRouter.post('/applications/:id/interview', (req, res) => {
+  const auth = currentUser(req);
+  const application = loadOwnedApplication(auth.id, req.params.id ?? '');
+  const input = scheduleSchema.parse(req.body);
+
+  const result = recommendationService.scheduleInterview({
+    applicationId: application.id,
+    ...input,
+    actorId: auth.id,
+    role: 'EMPLOYER',
+  });
+
+  const interview = interviewRepo.findById(result.interviewId)!;
+  sendSerialized(res, { interview: toPartyView(interview, 'EMPLOYER'), rescheduled: result.rescheduled }, 201);
+});
+
+/** Ownership check for an interview reached by its own id, not the application's. */
+function loadOwnedInterview(userId: string, interviewId: string) {
+  const interview = interviewRepo.findById(interviewId);
+  if (!interview) throw notFound('Interview not found.');
+  // Same answer whether it belongs to someone else or does not exist.
+  loadOwnedApplication(userId, interview.application_id);
+  return interview;
+}
+
+employerApplicantsRouter.post('/interviews/:id/cancel', (req, res) => {
+  const auth = currentUser(req);
+  const interview = loadOwnedInterview(auth.id, req.params.id ?? '');
+  recommendationService.cancelInterview(interview.id, auth.id, 'EMPLOYER');
+  sendNoContent(res);
+});
+
+employerApplicantsRouter.post('/interviews/:id/complete', (req, res) => {
+  const auth = currentUser(req);
+  const interview = loadOwnedInterview(auth.id, req.params.id ?? '');
+  recommendationService.completeInterview(interview.id, auth.id, 'EMPLOYER');
+  sendNoContent(res);
 });

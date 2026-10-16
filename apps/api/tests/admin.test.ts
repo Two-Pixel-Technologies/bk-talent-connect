@@ -427,3 +427,162 @@ describe('user administration', () => {
     void applicationRepo;
   });
 });
+
+describe('status-priority sorting and phone search', () => {
+  /*
+   * Priority order per the product requirement: Awaiting review / Pending
+   * approval (1), Approved (2), Changes requested (3), Draft (4), Rejected
+   * (5), with anything else (CLOSED/FILLED for jobs) falling back after that,
+   * deterministically. Fixtures here are named out of alphabetical order so
+   * that if the list came back sorted by name instead of by status, these
+   * assertions would fail.
+   */
+  let draftId: string;
+  let approvedId: string;
+  let changesId: string;
+  let rejectedId: string;
+  let submittedId: string;
+
+  beforeAll(async () => {
+    const candidateRepo = await import('../src/repositories/candidate.repo.js');
+
+    const fixtures: { name: string; email: string; mobile: string; status: string }[] = [
+      { name: 'Zzz Draft Candidate', email: 'zzz-draft@example.com', mobile: '9111100001', status: 'DRAFT' },
+      { name: 'Aaa Approved Candidate', email: 'aaa-approved@example.com', mobile: '9111100002', status: 'APPROVED' },
+      { name: 'Bbb Changes Candidate', email: 'bbb-changes@example.com', mobile: '9111100003', status: 'CHANGES_REQUESTED' },
+      { name: 'Ccc Rejected Candidate', email: 'ccc-rejected@example.com', mobile: '9111100004', status: 'REJECTED' },
+      { name: 'Ddd Submitted Candidate', email: 'ddd-submitted@example.com', mobile: '9111100005', status: 'SUBMITTED' },
+    ];
+
+    const ids: Record<string, string> = {};
+    for (const f of fixtures) {
+      const res = await request(app).post('/api/auth/register/candidate').set(CSRF_HEADER).send({
+        fullName: f.name,
+        email: f.email,
+        mobile: f.mobile,
+        password: 'correct-horse-9',
+        consentToShare: true,
+      });
+      const cookie = sessionCookie(res);
+      const me = await request(app).get('/api/auth/me').set('Cookie', cookie);
+      const profileId = candidateRepo.findByUserId(me.body.id)!.id;
+      ids[f.status] = profileId;
+      if (f.status !== 'DRAFT') {
+        candidateRepo.setStatus(profileId, f.status, { submittedAt: new Date().toISOString() });
+      }
+    }
+    draftId = ids.DRAFT!;
+    approvedId = ids.APPROVED!;
+    changesId = ids.CHANGES_REQUESTED!;
+    rejectedId = ids.REJECTED!;
+    submittedId = ids.SUBMITTED!;
+  });
+
+  it('ranks candidates Submitted, Approved, Changes requested, Draft, Rejected regardless of name order', async () => {
+    const res = await asAdmin(request(app).get('/api/admin/candidates?search=Candidate&pageSize=50'));
+    expect(res.status).toBe(200);
+    const ids = [draftId, approvedId, changesId, rejectedId, submittedId];
+    const ranked = res.body.items
+      .filter((c: { id: string }) => ids.includes(c.id))
+      .map((c: { id: string }) => c.id);
+
+    expect(ranked).toEqual([submittedId, approvedId, changesId, draftId, rejectedId]);
+  });
+
+  it('paginates the same ranked order without duplicating or dropping a row', async () => {
+    const page1 = await asAdmin(request(app).get('/api/admin/candidates?search=Candidate&pageSize=2&page=1'));
+    const page2 = await asAdmin(request(app).get('/api/admin/candidates?search=Candidate&pageSize=2&page=2'));
+    const page3 = await asAdmin(request(app).get('/api/admin/candidates?search=Candidate&pageSize=2&page=3'));
+    const allIds = [...page1.body.items, ...page2.body.items, ...page3.body.items].map(
+      (c: { id: string }) => c.id,
+    );
+    expect(new Set(allIds).size).toBe(allIds.length);
+    expect(allIds).toEqual([submittedId, approvedId, changesId, draftId, rejectedId]);
+  });
+
+  it('finds a candidate by a bare phone number', async () => {
+    const res = await asAdmin(request(app).get('/api/admin/candidates?search=9111100002'));
+    expect(res.status).toBe(200);
+    expect(res.body.items.length).toBe(1);
+    expect(res.body.items[0].id).toBe(approvedId);
+  });
+
+  it('still finds a candidate by name when the search has no digits', async () => {
+    const res = await asAdmin(request(app).get('/api/admin/candidates?search=Rejected Candidate'));
+    expect(res.body.items.map((c: { id: string }) => c.id)).toEqual([rejectedId]);
+  });
+
+  it('ranks employers the same way, and finds one by phone', async () => {
+    const employerRepo = await import('../src/repositories/employer.repo.js');
+    const { getDb } = await import('../src/db/client.js');
+
+    const fixtures = [
+      { company: 'Zzz Draft Co', email: 'zzz-draft-co@example.com', phone: '9222200001', status: 'DRAFT' },
+      { company: 'Aaa Approved Co', email: 'aaa-approved-co@example.com', phone: '9222200002', status: 'APPROVED' },
+      { company: 'Bbb Changes Co', email: 'bbb-changes-co@example.com', phone: '9222200003', status: 'CHANGES_REQUESTED' },
+      { company: 'Ccc Rejected Co', email: 'ccc-rejected-co@example.com', phone: '9222200004', status: 'REJECTED' },
+      { company: 'Ddd Submitted Co', email: 'ddd-submitted-co@example.com', phone: '9222200005', status: 'SUBMITTED' },
+    ];
+    const ids: Record<string, string> = {};
+    for (const f of fixtures) {
+      const res = await request(app).post('/api/auth/register/employer').set(CSRF_HEADER).send({
+        companyName: f.company,
+        hrContactName: 'Contact Person',
+        email: f.email,
+        hrContactPhone: f.phone,
+        password: 'correct-horse-9',
+      });
+      const cookie = sessionCookie(res);
+      const me = await request(app).get('/api/auth/me').set('Cookie', cookie);
+      const profileId = employerRepo.findByUserId(me.body.id)!.id;
+      ids[f.status] = profileId;
+      // Employers default to SUBMITTED on registration (unlike candidates,
+      // which default to DRAFT) — so DRAFT needs setting explicitly too.
+      getDb().prepare('UPDATE employer_profile SET account_status = ? WHERE id = ?').run(f.status, profileId);
+    }
+
+    const res = await asAdmin(request(app).get('/api/admin/employers?search=Co&pageSize=50'));
+    const relevant = [ids.DRAFT, ids.APPROVED, ids.CHANGES_REQUESTED, ids.REJECTED, ids.SUBMITTED];
+    const ranked = res.body.items
+      .filter((e: { id: string }) => relevant.includes(e.id))
+      .map((e: { id: string }) => e.id);
+    expect(ranked).toEqual([ids.SUBMITTED, ids.APPROVED, ids.CHANGES_REQUESTED, ids.DRAFT, ids.REJECTED]);
+
+    const phoneSearch = await asAdmin(request(app).get('/api/admin/employers?search=9222200004'));
+    expect(phoneSearch.body.items.map((e: { id: string }) => e.id)).toEqual([ids.REJECTED]);
+  });
+
+  it('ranks jobs with Closed and Filled sinking below Rejected', async () => {
+    const jobRepo = await import('../src/repositories/job.repo.js');
+
+    const draft = jobRepo.create(employerProfileId, 'Zzz Draft Role');
+    const approved = jobRepo.create(employerProfileId, 'Aaa Approved Role');
+    jobRepo.setStatus(approved, 'APPROVED', ['DRAFT'], { publishedAt: new Date().toISOString() });
+    const changes = jobRepo.create(employerProfileId, 'Bbb Changes Role');
+    jobRepo.setStatus(changes, 'CHANGES_REQUESTED', ['DRAFT']);
+    const rejected = jobRepo.create(employerProfileId, 'Ccc Rejected Role');
+    jobRepo.setStatus(rejected, 'REJECTED', ['DRAFT']);
+    const pending = jobRepo.create(employerProfileId, 'Ddd Pending Role');
+    jobRepo.setStatus(pending, 'PENDING_APPROVAL', ['DRAFT']);
+    const closed = jobRepo.create(employerProfileId, 'Eee Closed Role');
+    jobRepo.setStatus(closed, 'APPROVED', ['DRAFT'], { publishedAt: new Date().toISOString() });
+    jobRepo.setStatus(closed, 'CLOSED', ['APPROVED']);
+    const filled = jobRepo.create(employerProfileId, 'Fff Filled Role');
+    jobRepo.setStatus(filled, 'APPROVED', ['DRAFT'], { publishedAt: new Date().toISOString() });
+    jobRepo.setStatus(filled, 'FILLED', ['APPROVED']);
+
+    const res = await asAdmin(request(app).get('/api/admin/jobs?search=Role&pageSize=50'));
+    const relevant = [pending, approved, changes, draft, rejected, closed, filled];
+    const ranked = res.body.items
+      .filter((j: { id: string }) => relevant.includes(j.id))
+      .map((j: { id: string }) => j.id);
+    // CLOSED and FILLED share fallback priority 6, so their relative order is
+    // only as deterministic as the secondary sort's timestamp resolution —
+    // two status changes issued back to back can land in the same
+    // millisecond. The five distinctly-prioritized tiers must still come out
+    // in exact order; the tied pair just has to occupy the last two slots,
+    // in either order.
+    expect(ranked.slice(0, 5)).toEqual([pending, approved, changes, draft, rejected]);
+    expect(new Set(ranked.slice(5))).toEqual(new Set([closed, filled]));
+  });
+});

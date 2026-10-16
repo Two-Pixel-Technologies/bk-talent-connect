@@ -151,8 +151,10 @@ export type CandidateProfileRow = Row<{
   current_employer: string | null;
   years_of_experience: number | null;
   sector_id: number | null;
+  sector_other: string | null;
   functional_area_id: number | null;
   education_level: string | null;
+  education_level_other: string | null;
   qualification: string | null;
   qualification_year: number | null;
   career_summary: string | null;
@@ -212,6 +214,16 @@ export type EmployerProfileRow = Row<{
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+}>;
+
+/** Extra hiring locations beyond a job's primary city_id/state. */
+export type JobLocationRow = Row<{
+  id: string;
+  job_id: string;
+  city_id: number | null;
+  state: string;
+  sort_order: number;
+  created_at: string;
 }>;
 
 export type JobRow = Row<{
@@ -294,6 +306,7 @@ export type InterviewRow = Row<{
   candidate_confirmed_at: string | null;
   employer_confirmed_at: string | null;
   superseded_by_id: string | null;
+  reminder_sent_at: string | null;
   created_by_id: string;
   created_at: string;
   updated_at: string;
@@ -329,6 +342,16 @@ export type NotificationRow = Row<{
   entity_type: string | null;
   entity_id: string | null;
   read_at: string | null;
+  created_at: string;
+}>;
+
+export type NotificationDeliveryRow = Row<{
+  id: string;
+  event: string;
+  channel: string;
+  user_id: string;
+  status: string;
+  detail: string | null;
   created_at: string;
 }>;
 
@@ -456,8 +479,10 @@ export const TABLE_COLUMNS: Readonly<Record<string, TableSpec>> = {
       current_employer: false,
       years_of_experience: false,
       sector_id: false,
+      sector_other: false,
       functional_area_id: false,
       education_level: false,
+      education_level_other: false,
       qualification: false,
       qualification_year: false,
       career_summary: false,
@@ -535,6 +560,16 @@ export const TABLE_COLUMNS: Readonly<Record<string, TableSpec>> = {
   job_skill: {
     columns: { job_id: true, skill_id: true, requirement: true },
   },
+  job_location: {
+    columns: {
+      id: true,
+      job_id: true,
+      city_id: false,
+      state: true,
+      sort_order: true,
+      created_at: true,
+    },
+  },
   application: {
     columns: {
       id: true,
@@ -580,6 +615,7 @@ export const TABLE_COLUMNS: Readonly<Record<string, TableSpec>> = {
       candidate_confirmed_at: false,
       employer_confirmed_at: false,
       superseded_by_id: false,
+      reminder_sent_at: false,
       created_by_id: true,
       created_at: true,
       updated_at: true,
@@ -630,6 +666,17 @@ export const TABLE_COLUMNS: Readonly<Record<string, TableSpec>> = {
       entity_type: false,
       entity_id: false,
       read_at: false,
+      created_at: true,
+    },
+  },
+  notification_delivery: {
+    columns: {
+      id: true,
+      event: true,
+      channel: true,
+      user_id: true,
+      status: true,
+      detail: false,
       created_at: true,
     },
   },

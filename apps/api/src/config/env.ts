@@ -60,6 +60,28 @@ const schema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
   WEB_DIST_DIR: z.string().default('../web/dist'),
+
+  /**
+   * Real email/WhatsApp provider wiring (Amazon SES, Meta Business API per
+   * the proposal's tech stack) is not built — see lib/channels.ts. Both
+   * default to false, which routes every send through a transport that only
+   * logs and never calls a real provider, so the app is always safe to run
+   * without credentials. Flipping either to true without first wiring a real
+   * transport in lib/channels.ts still never crashes the app — it logs once
+   * that delivery is "enabled" with no transport configured, then keeps
+   * behaving exactly as if it were false.
+   */
+  EMAIL_DELIVERY_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  WHATSAPP_DELIVERY_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+
+  /** How often the 24-hour-before interview reminder sweep runs. */
+  INTERVIEW_REMINDER_SWEEP_MS: z.coerce.number().int().min(60_000).default(15 * 60_000),
 });
 
 const parsed = schema.safeParse(process.env);

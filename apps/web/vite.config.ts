@@ -23,6 +23,10 @@ function gitSha(): string {
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Only set for the GitHub Pages workflow (see .github/workflows/deploy-web.yml);
+  // every other build (local dev, the existing nginx/prod path) keeps the
+  // default "/" and is unaffected.
+  base: process.env.VITE_BASE_PATH ?? '/',
   define: {
     __APP_VERSION__: JSON.stringify(gitSha()),
   },
@@ -32,9 +36,23 @@ export default defineConfig({
     // directly but 502s through nginx.
     host: '127.0.0.1',
     port: 5173,
+    // Without this, a leftover dev server (e.g. an orphaned background
+    // process from a previous session) silently pushes a new run onto 5174,
+    // 5175, etc. The app still loads fine there — only the API's Origin
+    // allowlist (apps/api/src/middleware/csrf.ts, tied to the assumed 5173
+    // dev port) doesn't recognise it, so every login fails with a generic
+    // "Cross-origin request blocked." with no clue why. Failing to bind is a
+    // much clearer signal than that.
+    strictPort: true,
     proxy: {
+      // Same reasoning as the server.host line above: "localhost" can resolve
+      // to ::1 instead of 127.0.0.1 depending on the machine's DNS/hosts
+      // resolution order, and the API isn't guaranteed to be reachable on
+      // ::1 — which surfaces here as ECONNREFUSED even though the API is
+      // running. Targeting the literal IPv4 loopback address sidesteps that
+      // resolution step entirely.
       '/api': {
-        target: 'http://localhost:4000',
+        target: 'http://127.0.0.1:4000',
         changeOrigin: false,
       },
     },

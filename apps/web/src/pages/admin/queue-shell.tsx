@@ -52,21 +52,22 @@ export function QueueShell({
   return (
     <div className="space-y-5">
       <div className={selected ? 'hidden lg:block' : ''}>
-        <h1 className="text-2xl font-bold text-brand-900">{title}</h1>
-        <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
+        <p className="text-xs font-semibold tracking-widest text-pub-blue uppercase">{title}</p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-brand-900">{title}</h1>
+        <p className="mt-1.5 text-sm text-slate-600">{subtitle}</p>
       </div>
 
       <div className={selected ? 'hidden lg:block' : ''}>
-        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {filters.map((f) => (
             <button
               key={f.value || 'all'}
               type="button"
               onClick={() => onStatusChange(f.value)}
-              className={`min-h-11 shrink-0 rounded-lg px-3 text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`min-h-11 shrink-0 cursor-pointer rounded-lg border px-3 text-sm font-semibold whitespace-nowrap transition-colors ${
                 status === f.value
-                  ? 'bg-brand-600 text-white'
-                  : 'bg-white text-slate-600 hover:bg-slate-100'
+                  ? 'border-brand-600 bg-brand-600 text-white shadow-sm shadow-brand-900/10'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
               }`}
             >
               {f.label}

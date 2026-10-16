@@ -7,12 +7,29 @@
  */
 
 import { lazy, Suspense, type ReactNode } from 'react';
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { RootLayout } from './components/layout/root-layout.js';
+import { PublicLayout } from './components/layout/public-layout.js';
 import { ProtectedRoute } from './features/auth/auth-context.js';
-import { LandingPage } from './pages/landing.js';
+import { HomePage } from './pages/public/home.js';
+import { ForCandidatesPage } from './pages/public/for-candidates.js';
+import { ForEmployersPage } from './pages/public/for-employers.js';
+import { AboutPage } from './pages/public/about.js';
+import { ContactPage } from './pages/public/contact.js';
+import { PrivacyPolicyPage } from './pages/public/privacy-policy.js';
+import { TermsOfUsePage } from './pages/public/terms-of-use.js';
 import { SystemStatusPage } from './pages/system-status.js';
 import { BuildStatusPage } from './pages/build-status.js';
+import { DesignLabPage } from './design-lab/candidate/DesignLabPage.js';
+import { PrototypeLayout } from './prototype/candidate/PrototypeLayout.js';
+import { Dashboard as PrototypeDashboard } from './prototype/candidate/pages/Dashboard.js';
+import { Jobs as PrototypeJobs } from './prototype/candidate/pages/Jobs.js';
+import { JobDetail as PrototypeJobDetail } from './prototype/candidate/pages/JobDetail.js';
+import { Applications as PrototypeApplications } from './prototype/candidate/pages/Applications.js';
+import { ApplicationDetail as PrototypeApplicationDetail } from './prototype/candidate/pages/ApplicationDetail.js';
+import { Profile as PrototypeProfile } from './prototype/candidate/pages/Profile.js';
+import { Notifications as PrototypeNotifications } from './prototype/candidate/pages/Notifications.js';
+import { Settings as PrototypeSettings } from './prototype/candidate/pages/Settings.js';
 import { NotFoundPage } from './pages/not-found.js';
 import { LoginPage } from './pages/auth/login.js';
 import { RegisterCandidatePage } from './pages/auth/register-candidate.js';
@@ -51,7 +68,6 @@ const CandidateQueuePage = lazy(() => import('./pages/admin/candidate-queue.js')
 const EmployerQueuePage = lazy(() => import('./pages/admin/employer-queue.js').then((m) => ({ default: m.EmployerQueuePage })));
 const JobQueuePage = lazy(() => import('./pages/admin/job-queue.js').then((m) => ({ default: m.JobQueuePage })));
 const PipelinePage = lazy(() => import('./pages/admin/pipeline.js').then((m) => ({ default: m.PipelinePage })));
-const CoordinationPage = lazy(() => import('./pages/admin/coordination.js').then((m) => ({ default: m.CoordinationPage })));
 const RecommendPage = lazy(() => import('./pages/admin/recommend.js').then((m) => ({ default: m.RecommendPage })));
 const SkillsPage = lazy(() => import('./pages/admin/skills.js').then((m) => ({ default: m.SkillsPage })));
 const TaxonomyPage = lazy(() => import('./pages/admin/taxonomy.js').then((m) => ({ default: m.TaxonomyPage })));
@@ -71,7 +87,18 @@ export const router = createBrowserRouter([
     path: '/',
     element: <RootLayout />,
     children: [
-      { index: true, element: <LandingPage /> },
+      {
+        element: <PublicLayout />,
+        children: [
+          { index: true, element: <HomePage /> },
+          { path: 'for-candidates', element: <ForCandidatesPage /> },
+          { path: 'for-employers', element: <ForEmployersPage /> },
+          { path: 'about', element: <AboutPage /> },
+          { path: 'contact', element: <ContactPage /> },
+          { path: 'privacy-policy', element: <PrivacyPolicyPage /> },
+          { path: 'terms-of-use', element: <TermsOfUsePage /> },
+        ],
+      },
 
       /*
        * Internal build and system pages, development only.
@@ -86,6 +113,40 @@ export const router = createBrowserRouter([
         ? [
             { path: 'status', element: <BuildStatusPage /> },
             { path: 'system', element: <SystemStatusPage /> },
+            // Isolated design-prototype preview — mock data only, not linked
+            // from the app, excluded from production bundles. See
+            // src/design-lab/candidate/.
+            { path: 'design-lab/candidate', element: <DesignLabPage /> },
+          ]
+        : []),
+
+      /*
+       * Full clickable candidate-portal prototype — mock data/local state
+       * only, no API calls. Gated on its own explicit build-time flag
+       * (VITE_ENABLE_PROTOTYPE), not on DEV: this lets a one-off "prototype
+       * demo" production build (VITE_ENABLE_PROTOTYPE=true, e.g. for a
+       * standalone Vercel preview) include it, while every other production
+       * build — including the real GitHub Pages deploy, where the var is
+       * never set — excludes it exactly as before. See
+       * src/prototype/candidate/.
+       */
+      ...(import.meta.env.VITE_ENABLE_PROTOTYPE === 'true'
+        ? [
+            {
+              path: 'prototype/candidate',
+              element: <PrototypeLayout />,
+              children: [
+                { index: true, element: <Navigate to="dashboard" replace /> },
+                { path: 'dashboard', element: <PrototypeDashboard /> },
+                { path: 'jobs', element: <PrototypeJobs /> },
+                { path: 'jobs/:id', element: <PrototypeJobDetail /> },
+                { path: 'applications', element: <PrototypeApplications /> },
+                { path: 'applications/:id', element: <PrototypeApplicationDetail /> },
+                { path: 'profile', element: <PrototypeProfile /> },
+                { path: 'notifications', element: <PrototypeNotifications /> },
+                { path: 'settings', element: <PrototypeSettings /> },
+              ],
+            },
           ]
         : []),
 
@@ -211,11 +272,6 @@ export const router = createBrowserRouter([
                 <PipelinePage />
               </Lazy>
             ) },
-          { path: 'coordination', element: (
-              <Lazy>
-                <CoordinationPage />
-              </Lazy>
-            ) },
           { path: 'skills', element: (
               <Lazy>
                 <SkillsPage />
@@ -242,4 +298,9 @@ export const router = createBrowserRouter([
       { path: '*', element: <NotFoundPage /> },
     ],
   },
-]);
+], {
+  // Matches Vite's `base` config (see vite.config.ts) — a no-op "/" locally
+  // and in the default production build, only becoming a real subpath when
+  // deployed to GitHub Pages under a repo path.
+  basename: import.meta.env.BASE_URL,
+});

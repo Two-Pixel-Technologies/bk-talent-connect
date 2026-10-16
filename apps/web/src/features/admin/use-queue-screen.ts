@@ -94,7 +94,17 @@ export function useQueueScreen<T extends { id: string }>(options: {
       // Page and filter move together. Staying on page 3 of a filter with one
       // page of results shows an empty list and looks like a bug.
       setPage(1);
-      setParams(value ? { status: value } : {});
+      /*
+       * Always write the param explicitly, even when value is ''. Omitting it
+       * for "All" (`setParams({})`) removed `status` from the URL entirely,
+       * which is indistinguishable from "never touched" — so the very next
+       * read of `params.get('status')` fell through to `defaultStatus` again
+       * and the queue snapped straight back to its daily filter. "All"
+       * looked unresponsive because the click worked and was then immediately
+       * overridden. `status=` (present, empty) vs absent is what `status`
+       * above actually depends on to tell "explicitly all" from "unset".
+       */
+      setParams({ status: value });
     },
     search,
     setSearch: (value: string) => {

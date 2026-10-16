@@ -28,9 +28,11 @@ export type CandidateProfile = {
   yearsOfExperience: number | null;
   sectorSlug: string | null;
   sectorName: string | null;
+  sectorOther: string | null;
   functionSlug: string | null;
   functionName: string | null;
   educationLevel: string | null;
+  educationLevelOther: string | null;
   qualification: string | null;
   qualificationYear: number | null;
   careerSummary: string | null;

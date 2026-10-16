@@ -16,6 +16,7 @@ import { QueueShell, QueueList } from './queue-shell.js';
 import { useQueueScreen } from '../../features/admin/use-queue-screen.js';
 import { AccountControls } from '../../components/account-controls.js';
 import { Badge, Card } from '../../components/ui/index.js';
+import { ADMIN_CARD } from './admin-style.js';
 
 const FILTERS = [
   { value: 'SUBMITTED', label: 'Awaiting verification' },
@@ -54,7 +55,7 @@ export function EmployerQueuePage() {
       onStatusChange={queue.setStatus}
       search={search}
       onSearchChange={queue.setSearch}
-      searchPlaceholder="Search by company or email"
+      searchPlaceholder="Search by company, email or phone"
       total={data?.total}
       page={page}
       pageSize={data?.pageSize ?? 20}
@@ -79,10 +80,10 @@ export function EmployerQueuePage() {
               key={e.id}
               type="button"
               onClick={() => queue.setSelectedId(e.id)}
-              className={`w-full rounded-xl border p-4 text-left transition-colors ${
+              className={`w-full cursor-pointer rounded-xl border p-4 text-left transition-all ${
                 selectedId === e.id
-                  ? 'border-brand-400 bg-brand-50'
-                  : 'border-slate-200 bg-white hover:border-brand-300'
+                  ? 'border-brand-400 bg-brand-50 shadow-[0_2px_10px_rgba(15,23,42,0.05)]'
+                  : `bg-white hover:border-brand-300 hover:shadow-[0_6px_18px_rgba(15,23,42,0.08)] ${ADMIN_CARD}`
               }`}
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -114,7 +115,7 @@ export function EmployerQueuePage() {
               error={review.error}
               noun="company"
             />
-            <Card>
+            <Card className={ADMIN_CARD}>
               <AccountControls
                 userId={selected.userId}
                 userStatus={selected.userStatus}
@@ -131,7 +132,7 @@ export function EmployerQueuePage() {
 
 function EmployerDetail({ employer: e }: { employer: AdminEmployer }) {
   return (
-    <Card>
+    <Card className={ADMIN_CARD}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h2 className="text-xl font-semibold text-brand-900">{e.companyName}</h2>
         <Badge tone={REVIEW_STATUS_TONE[e.accountStatus] ?? 'slate'}>

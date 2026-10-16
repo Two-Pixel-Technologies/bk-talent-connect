@@ -238,14 +238,28 @@ beforeAll(async () => {
   /*
    * --- CANDIDATE_SHORTLISTED ------------------------------------------------
    *
-   * Driven by the admin, not the employer, and that is the point of the row:
-   * p8 lists the employer as a recipient because BK also shortlists on their
-   * behalf. When the employer clicks it themselves they are the actor and are
-   * excluded — a one-seat employer account being told about its own click is
-   * noise, and that case is asserted separately below.
+   * p8 lists the employer as a recipient of their OWN shortlist action
+   * because the matrix also covers BK shortlisting on their behalf — that
+   * second path no longer exists (see admin-pipeline.routes.ts's and
+   * admin-coordination.routes.ts's file comments: interview coordination and
+   * every hiring decision now belong to Candidate/Employer, not Admin). So
+   * this suite drives the one path that still exists — the employer's own
+   * action — and the "actor excluded from their own notification" case is
+   * asserted separately below using the dedicated self-action test.
+   *
+   * Loaded dynamically here (not as a static top-level import) for the same
+   * reason createTestContext loads everything dynamically: these modules
+   * reach config/env.ts, which must not be parsed before DATABASE_PATH is set.
    */
-  await asAdmin(request(app).post(`/api/admin/applications/${offerApplicationId}/stage`)).send({
-    stage: 'SHORTLISTED',
+  const applicationService = await import('../src/modules/application/application.service.js');
+  const recommendationService = await import('../src/modules/admin/recommendation.service.js');
+  const candidateRepo2 = await import('../src/repositories/candidate.repo.js');
+
+  applicationService.changeStage({
+    applicationId: offerApplicationId,
+    toStage: 'SHORTLISTED',
+    role: 'EMPLOYER',
+    actorId: employerUserId,
   });
 
   // --- EMPLOYER_INTERVIEW_REQUESTED -----------------------------------------
@@ -253,21 +267,100 @@ beforeAll(async () => {
     request(app).post(`/api/employer/applications/${offerApplicationId}/request-interview`),
   ).send({ preferredSlots: [inHours(48), inHours(72)], note: 'Afternoons suit us best.' });
 
-  // --- INTERVIEW_CONFIRMED --------------------------------------------------
+  // --- INTERVIEW_CONFIRMED ---------------------------------------------------
+  // Scheduling is the employer's own action now, not BK's — see the file
+  // comment above.
   interviewScheduledAt = inHours(50);
-  await asAdmin(request(app).post(`/api/admin/applications/${offerApplicationId}/interview`)).send({
+  recommendationService.scheduleInterview({
+    applicationId: offerApplicationId,
     scheduledAt: interviewScheduledAt,
     durationMinutes: 45,
     mode: 'VIDEO',
     locationOrLink: 'https://meet.example.com/bktc-anita',
+    actorId: employerUserId,
+    role: 'EMPLOYER',
   });
 
   // --- OFFER_MADE -----------------------------------------------------------
-  await asAdmin(request(app).post(`/api/admin/applications/${offerApplicationId}/stage`)).send({
-    stage: 'INTERVIEWED',
+  applicationService.changeStage({
+    applicationId: offerApplicationId,
+    toStage: 'INTERVIEWED',
+    role: 'EMPLOYER',
+    actorId: employerUserId,
   });
-  await asAdmin(request(app).post(`/api/admin/applications/${offerApplicationId}/stage`)).send({
-    stage: 'OFFER_MADE',
+  applicationService.changeStage({
+    applicationId: offerApplicationId,
+    toStage: 'OFFER_MADE',
+    role: 'EMPLOYER',
+    actorId: employerUserId,
+  });
+
+  // --- OFFER_ACCEPTED, CANDIDATE_JOINED --------------------------------------
+  // The candidate's own decision on the offer, then the employer confirming
+  // joining — both previously admin-only, now owned by the party who
+  // actually makes each call in a real hiring process.
+  applicationService.changeStage({
+    applicationId: offerApplicationId,
+    toStage: 'OFFER_ACCEPTED',
+    role: 'CANDIDATE',
+    actorId: candidateUserId,
+  });
+  applicationService.changeStage({
+    applicationId: offerApplicationId,
+    toStage: 'JOINED',
+    role: 'EMPLOYER',
+    actorId: employerUserId,
+  });
+
+  // --- OFFER_DECLINED --------------------------------------------------------
+  // A second candidate taken all the way to an offer on the same job, so the
+  // decline path can be exercised independently of the accept path above.
+  const decliner = await request(app).post('/api/auth/register/candidate').set(CSRF_HEADER).send({
+    fullName: 'Sunil Patil',
+    email: 'sunil@example.com',
+    mobile: '9876543212',
+    password: 'correct-horse-4',
+    consentToShare: true,
+  });
+  const declinerMe = await request(app).get('/api/auth/me').set('Cookie', sessionCookie(decliner));
+  const declinerProfileId = candidateRepo2.findByUserId(declinerMe.body.id)!.id;
+  candidateRepo2.setStatus(declinerProfileId, 'APPROVED');
+  const declinerApplied = await request(app)
+    .post(`/api/candidate/jobs/${jobId}/apply`)
+    .set('Cookie', sessionCookie(decliner))
+    .set(CSRF_HEADER);
+  const declineApplicationId = declinerApplied.body.applicationId as string;
+
+  for (const stage of ['UNDER_REVIEW', 'SHORTLISTED'] as const) {
+    applicationService.changeStage({
+      applicationId: declineApplicationId,
+      toStage: stage,
+      role: 'EMPLOYER',
+      actorId: employerUserId,
+    });
+  }
+  recommendationService.scheduleInterview({
+    applicationId: declineApplicationId,
+    scheduledAt: inHours(60),
+    durationMinutes: 30,
+    mode: 'PHONE',
+    locationOrLink: '+91 98765 00000',
+    actorId: employerUserId,
+    role: 'EMPLOYER',
+  });
+  for (const stage of ['INTERVIEWED', 'OFFER_MADE'] as const) {
+    applicationService.changeStage({
+      applicationId: declineApplicationId,
+      toStage: stage,
+      role: 'EMPLOYER',
+      actorId: employerUserId,
+    });
+  }
+  applicationService.changeStage({
+    applicationId: declineApplicationId,
+    toStage: 'OFFER_DECLINED',
+    role: 'CANDIDATE',
+    actorId: declinerMe.body.id,
   });
 
   // --- CANDIDATE_RECOMMENDED ------------------------------------------------
@@ -277,22 +370,63 @@ beforeAll(async () => {
   recommendedApplicationId = recommended.body.applicationId as string;
 
   // --- CANDIDATE_NOT_SELECTED -----------------------------------------------
-  await asAdmin(request(app).post(`/api/admin/applications/${recommendedApplicationId}/stage`)).send(
-    { stage: 'NOT_SELECTED', note: 'Not the right fit for this brief.' },
-  );
+  // Still an admin recommendation turned down by the employer — admin's
+  // recommend action is unrelated to hiring-stage decisions and untouched by
+  // this product change, but the actual rejection is the employer's own, as
+  // it already was before.
+  applicationService.changeStage({
+    applicationId: recommendedApplicationId,
+    toStage: 'NOT_SELECTED',
+    role: 'EMPLOYER',
+    actorId: employerUserId,
+    note: 'Not the right fit for this brief.',
+  });
 
   // Referenced so the linter sees the seeded ids as used by the suite.
   void jobRepo;
 });
 
-afterAll(() => ctx.cleanup());
+afterAll(async () => {
+  // Every notify() call this file triggered — not just the ones individual
+  // tests explicitly awaited — defers its email/WhatsApp dispatch via
+  // setImmediate (see lib/notify.ts). Closing the database before those
+  // settle would make a stray late write throw against a closed connection.
+  const { notificationDispatchSettled } = await import('../src/lib/notify.js');
+  await notificationDispatchSettled();
+  ctx.cleanup();
+});
 
 // ---------------------------------------------------------------------------
 // The matrix, row by row
 // ---------------------------------------------------------------------------
 
+/**
+ * Rows whose full declared recipient set is no longer reachable by ANY
+ * journey, now that interview coordination and hiring decisions moved from
+ * Admin to Candidate/Employer.
+ *
+ * CANDIDATE_SHORTLISTED's EMPLOYER recipient existed for the case where BK
+ * shortlisted on the employer's behalf (a third-party actor, so the employer
+ * was not excluded). That path is gone — the employer is now always the one
+ * who shortlists, so excludeUserId always strips them. The matrix row is
+ * left exactly as transcribed from the proposal (this file's own header
+ * comment: transcribed, not paraphrased) rather than silently edited to match
+ * the new reality; this is reported as a known consequence instead.
+ */
+const PARTIALLY_UNREACHABLE_NOW: ReadonlySet<NotificationEvent> = new Set(['CANDIDATE_SHORTLISTED']);
+
+/**
+ * INTERVIEW_REMINDER is the one matrix row with no Portal channel at all
+ * (see NOTIFICATION_MATRIX) — notify() deliberately writes zero rows to the
+ * `notification` table for it, so `deliveredOf()` (which only reads that
+ * table) can never see it delivered, by design, not by a journey gap. It
+ * gets its own describe block below instead, asserting against
+ * `notification_delivery` (the email/WhatsApp audit trail).
+ */
+const PORTAL_LESS: ReadonlySet<NotificationEvent> = new Set(['INTERVIEW_REMINDER']);
+
 describe('the p8 notification matrix', () => {
-  it.each(NOTIFICATION_MATRIX)(
+  it.each(NOTIFICATION_MATRIX.filter((spec) => !PORTAL_LESS.has(spec.event)))(
     '$event reaches exactly $recipients',
     ({ event, recipients }) => {
       const delivered = deliveredOf(event);
@@ -306,7 +440,11 @@ describe('the p8 notification matrix', () => {
       expect(delivered.length, `${event} was never raised by any journey`).toBeGreaterThan(0);
 
       const gotRoles = [...new Set(delivered.map((d) => d.role))].sort();
-      expect(gotRoles).toEqual([...recipients].sort());
+      if (PARTIALLY_UNREACHABLE_NOW.has(event)) {
+        for (const role of gotRoles) expect(recipients).toContain(role);
+      } else {
+        expect(gotRoles).toEqual([...recipients].sort());
+      }
     },
   );
 
@@ -373,6 +511,212 @@ describe('the p8 notification matrix', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Email / WhatsApp channel dispatch (lib/channels.ts, lib/notify.ts)
+// ---------------------------------------------------------------------------
+
+describe('email/WhatsApp channel dispatch', () => {
+  it('dispatches on every channel the event declares, skipping gracefully when a recipient has no mobile number', async () => {
+    const { notificationDispatchSettled } = await import('../src/lib/notify.js');
+    const deliveryRepo = await import('../src/repositories/notification-delivery.repo.js');
+    await notificationDispatchSettled();
+
+    // CANDIDATE_PROFILE_APPROVED: Email + WhatsApp + Portal, candidate only —
+    // the candidate has both an email and a mobile on file, so both channels
+    // should have actually attempted a send (through the logging transport).
+    const approved = deliveryRepo
+      .listForUser(candidateUserId)
+      .filter((d) => d.event === 'CANDIDATE_PROFILE_APPROVED');
+    expect(approved.map((d) => d.channel).sort()).toEqual(['EMAIL', 'WHATSAPP']);
+    expect(approved.every((d) => d.status === 'SENT')).toBe(true);
+
+    // APPLICATION_SUBMITTED reaches ADMIN too, and no admin has a mobile
+    // number anywhere in this product — that must be a SKIPPED delivery, not
+    // a FAILED one; skipping a channel that genuinely does not apply is not
+    // an error.
+    const adminWhatsapp = deliveryRepo
+      .listForUser(adminId)
+      .find((d) => d.event === 'APPLICATION_SUBMITTED' && d.channel === 'WHATSAPP');
+    expect(adminWhatsapp?.status).toBe('SKIPPED');
+
+    // JOB_SUBMITTED is Email + Portal only in the matrix — no WhatsApp
+    // dispatch should be attempted for it at all, SKIPPED or otherwise.
+    const jobSubmittedWhatsapp = deliveryRepo
+      .listForUser(employerUserId)
+      .filter((d) => d.event === 'JOB_SUBMITTED' && d.channel === 'WHATSAPP');
+    expect(jobSubmittedWhatsapp).toHaveLength(0);
+  });
+
+  it('records a FAILED delivery, not a thrown error, when the transport rejects', async () => {
+    const channels = await import('../src/lib/channels.js');
+    const notifyLib = await import('../src/lib/notify.js');
+    const deliveryRepo = await import('../src/repositories/notification-delivery.repo.js');
+
+    channels.setTransportsForTesting({
+      email: {
+        send: async () => {
+          throw new Error('provider unreachable');
+        },
+      },
+    });
+
+    // notify() itself must never throw because a downstream channel failed —
+    // the portal row (and the fact being recorded in application state) must
+    // never depend on email/WhatsApp succeeding.
+    expect(() =>
+      notifyLib.notify({
+        event: 'CANDIDATE_SHORTLISTED',
+        parties: { CANDIDATE: candidateUserId, EMPLOYER: employerUserId },
+        title: 'Channel-failure-path test',
+        entityType: 'APPLICATION',
+        entityId: 'channel-failure-path-test',
+      }),
+    ).not.toThrow();
+
+    await notifyLib.notificationDispatchSettled();
+
+    const failed = deliveryRepo
+      .listForUser(candidateUserId)
+      .find((d) => d.event === 'CANDIDATE_SHORTLISTED' && d.channel === 'EMAIL');
+    expect(failed?.status).toBe('FAILED');
+    expect(failed?.detail).toContain('provider unreachable');
+
+    channels.setTransportsForTesting(); // restore the logging default
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The 24-hour-before interview reminder (lib/interview-reminder-sweep.ts)
+// ---------------------------------------------------------------------------
+
+describe('the 24-hour interview reminder', () => {
+  it('reminds once per interview on Email + WhatsApp only (no portal row), and is idempotent across repeated sweeps', async () => {
+    const jobRepo = await import('../src/repositories/job.repo.js');
+    const employerRepo = await import('../src/repositories/employer.repo.js');
+    const recommendationService = await import('../src/modules/admin/recommendation.service.js');
+    const { runInterviewReminderSweep } = await import('../src/lib/interview-reminder-sweep.js');
+    const { notificationDispatchSettled } = await import('../src/lib/notify.js');
+    const deliveryRepo = await import('../src/repositories/notification-delivery.repo.js');
+    const { getDb } = await import('../src/db/client.js');
+
+    const employerProfileId = employerRepo.findByUserId(employerUserId)!.id;
+    const jobId = jobRepo.create(employerProfileId, 'Instrumentation Engineer');
+    jobRepo.setStatus(jobId, 'APPROVED', ['DRAFT'], { publishedAt: new Date().toISOString() });
+
+    const applied = await request(app)
+      .post(`/api/candidate/jobs/${jobId}/apply`)
+      .set('Cookie', candidateCookie)
+      .set(CSRF_HEADER);
+    const applicationId = applied.body.applicationId as string;
+
+    for (const stage of ['UNDER_REVIEW', 'SHORTLISTED']) {
+      const res = await request(app)
+        .post(`/api/employer/applications/${applicationId}/stage`)
+        .set('Cookie', employerCookie)
+        .set(CSRF_HEADER)
+        .send({ stage });
+      expect(res.status).toBe(200);
+    }
+
+    // Inside the 24-hour window — must be reminded by the next sweep.
+    recommendationService.scheduleInterview({
+      applicationId,
+      scheduledAt: inHours(20),
+      durationMinutes: 30,
+      mode: 'VIDEO',
+      locationOrLink: 'https://meet.example.com/reminder-test',
+      actorId: employerUserId,
+      role: 'EMPLOYER',
+    });
+    const interview = getDb()
+      .prepare("SELECT id FROM interview WHERE application_id = ? AND status = 'SCHEDULED'")
+      .get(applicationId) as { id: string };
+
+    const first = runInterviewReminderSweep();
+    expect(first.remindedCount).toBeGreaterThanOrEqual(1);
+    await notificationDispatchSettled();
+
+    // No portal row — the one matrix row with no Portal channel.
+    const portalRows = getDb()
+      .prepare("SELECT 1 FROM notification WHERE event = 'INTERVIEW_REMINDER' AND entity_id = ?")
+      .all(interview.id);
+    expect(portalRows).toHaveLength(0);
+
+    const candidateDeliveries = deliveryRepo
+      .listForUser(candidateUserId)
+      .filter((d) => d.event === 'INTERVIEW_REMINDER');
+    expect(candidateDeliveries.map((d) => d.channel).sort()).toEqual(['EMAIL', 'WHATSAPP']);
+    expect(candidateDeliveries.every((d) => d.status === 'SENT')).toBe(true);
+
+    const employerDeliveries = deliveryRepo
+      .listForUser(employerUserId)
+      .filter((d) => d.event === 'INTERVIEW_REMINDER');
+    expect(employerDeliveries.map((d) => d.channel).sort()).toEqual(['EMAIL', 'WHATSAPP']);
+
+    // Idempotency: reminder_sent_at is now set, so a second sweep — even one
+    // covering the exact same window — must claim nothing more for this
+    // interview. This is the duplicate-prevention guarantee: a candidate
+    // must never get two reminder messages for the same interview no matter
+    // how many times the interval fires before the interview happens.
+    const before = deliveryRepo.listForUser(candidateUserId).filter((d) => d.event === 'INTERVIEW_REMINDER').length;
+    runInterviewReminderSweep();
+    await notificationDispatchSettled();
+    const after = deliveryRepo.listForUser(candidateUserId).filter((d) => d.event === 'INTERVIEW_REMINDER').length;
+    expect(after).toBe(before);
+
+    const row = getDb()
+      .prepare('SELECT reminder_sent_at FROM interview WHERE id = ?')
+      .get(interview.id) as { reminder_sent_at: string | null };
+    expect(row.reminder_sent_at).not.toBeNull();
+  });
+
+  it('does not remind an interview more than 24 hours out', async () => {
+    const jobRepo = await import('../src/repositories/job.repo.js');
+    const employerRepo = await import('../src/repositories/employer.repo.js');
+    const recommendationService = await import('../src/modules/admin/recommendation.service.js');
+    const { runInterviewReminderSweep } = await import('../src/lib/interview-reminder-sweep.js');
+    const { getDb } = await import('../src/db/client.js');
+
+    const employerProfileId = employerRepo.findByUserId(employerUserId)!.id;
+    const jobId = jobRepo.create(employerProfileId, 'Quality Engineer — Future Interview');
+    jobRepo.setStatus(jobId, 'APPROVED', ['DRAFT'], { publishedAt: new Date().toISOString() });
+
+    const applied = await request(app)
+      .post(`/api/candidate/jobs/${jobId}/apply`)
+      .set('Cookie', candidateCookie)
+      .set(CSRF_HEADER);
+    const applicationId = applied.body.applicationId as string;
+
+    for (const stage of ['UNDER_REVIEW', 'SHORTLISTED']) {
+      await request(app)
+        .post(`/api/employer/applications/${applicationId}/stage`)
+        .set('Cookie', employerCookie)
+        .set(CSRF_HEADER)
+        .send({ stage });
+    }
+
+    recommendationService.scheduleInterview({
+      applicationId,
+      scheduledAt: inHours(70), // well outside the 24-hour window
+      durationMinutes: 30,
+      mode: 'VIDEO',
+      locationOrLink: 'https://meet.example.com/far-out-test',
+      actorId: employerUserId,
+      role: 'EMPLOYER',
+    });
+    const interview = getDb()
+      .prepare("SELECT id FROM interview WHERE application_id = ? AND status = 'SCHEDULED'")
+      .get(applicationId) as { id: string };
+
+    runInterviewReminderSweep();
+
+    const row = getDb()
+      .prepare('SELECT reminder_sent_at FROM interview WHERE id = ?')
+      .get(interview.id) as { reminder_sent_at: string | null };
+    expect(row.reminder_sent_at).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Privacy
 // ---------------------------------------------------------------------------
 
@@ -411,8 +755,11 @@ describe('notification content', () => {
   });
 
   it('gives both parties the same interview time, in IST', () => {
-    const delivered = deliveredOf('INTERVIEW_CONFIRMED');
     const when = formatDateTime(interviewScheduledAt);
+    // Scoped to this specific interview's time — a second application in the
+    // same journey (the decline-path fixture) also schedules one, at a
+    // different time, and would otherwise double-count here.
+    const delivered = deliveredOf('INTERVIEW_CONFIRMED').filter((d) => d.body?.includes(when));
 
     expect(when).toContain('IST');
     expect(delivered).toHaveLength(2);

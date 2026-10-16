@@ -46,6 +46,8 @@ beforeAll(async () => {
   const employerRepo = await import('../src/repositories/employer.repo.js');
   const jobRepo = await import('../src/repositories/job.repo.js');
   const { hashPassword } = await import('../src/lib/password.js');
+  const applicationService = await import('../src/modules/application/application.service.js');
+  const recommendationService = await import('../src/modules/admin/recommendation.service.js');
 
   userRepo.create({
     email: 'admin@bktc.test',
@@ -114,6 +116,7 @@ beforeAll(async () => {
   });
   employerCookie = sessionCookie(employer);
   const employerMe = await request(app).get('/api/auth/me').set('Cookie', employerCookie);
+  const employerUserId: string = employerMe.body.id;
   const employerProfileId = employerRepo.findByUserId(employerMe.body.id)!.id;
   getDb()
     .prepare("UPDATE employer_profile SET account_status='APPROVED' WHERE id=?")
@@ -161,29 +164,37 @@ beforeAll(async () => {
   expect(reqRes.status, JSON.stringify(reqRes.body)).toBe(201);
 
   // Shortlist, then book it with joining instructions naming them.
-  await request(app)
-    .post(`/api/admin/applications/${applicationId}/stage`)
-    .set('Cookie', adminCookie)
-    .set(CSRF_HEADER)
-    .send({ stage: 'UNDER_REVIEW' });
-  await request(app)
-    .post(`/api/admin/applications/${applicationId}/stage`)
-    .set('Cookie', adminCookie)
-    .set(CSRF_HEADER)
-    .send({ stage: 'SHORTLISTED', note: `${FULL_NAME} confirmed by phone on ${MOBILE}.` });
+  //
+  // Admin no longer has an HTTP route to do either (see admin-pipeline.routes.ts
+  // and admin-coordination.routes.ts) — that mutation authority was removed as
+  // a product decision. This test is not about that authority; it is about
+  // what erasure must and must not touch, so state is seeded through the
+  // service layer directly, the same domain logic the removed routes used.
+  applicationService.changeStage({
+    applicationId,
+    toStage: 'UNDER_REVIEW',
+    role: 'EMPLOYER',
+    actorId: employerUserId,
+  });
+  applicationService.changeStage({
+    applicationId,
+    toStage: 'SHORTLISTED',
+    role: 'EMPLOYER',
+    actorId: employerUserId,
+    note: `${FULL_NAME} confirmed by phone on ${MOBILE}.`,
+  });
 
-  const ivRes = await request(app)
-    .post(`/api/admin/applications/${applicationId}/interview`)
-    .set('Cookie', adminCookie)
-    .set(CSRF_HEADER)
-    .send({
-      scheduledAt: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-      durationMinutes: 45,
-      mode: 'ONSITE',
-      locationOrLink: 'Gate 2, Chakan MIDC',
-      instructions: `Ask for ${FULL_NAME} at reception; his mobile is ${MOBILE}.`,
-    });
-  expect(ivRes.status, JSON.stringify(ivRes.body)).toBe(201);
+  const ivRes = recommendationService.scheduleInterview({
+    applicationId,
+    scheduledAt: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+    durationMinutes: 45,
+    mode: 'ONSITE',
+    locationOrLink: 'Gate 2, Chakan MIDC',
+    instructions: `Ask for ${FULL_NAME} at reception; his mobile is ${MOBILE}.`,
+    actorId: employerUserId,
+    role: 'EMPLOYER',
+  });
+  expect(ivRes.interviewId).toBeTruthy();
 });
 
 afterAll(() => ctx.cleanup());

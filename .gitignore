@@ -38,3 +38,4 @@ coverage/
 
 # Local nginx runtime (pid, logs, temp dirs)
 .nginx-local/
+.vercel

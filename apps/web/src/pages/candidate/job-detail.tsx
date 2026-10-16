@@ -8,6 +8,7 @@ import { ApiError } from '../../lib/api-client.js';
 import { useJobDetail, useApply } from '../../features/candidate/use-jobs.js';
 import { QueryState } from '../../components/query-state.js';
 import { Alert, Badge, Button, Card } from '../../components/ui/index.js';
+import { CANDIDATE_CARD } from './candidate-style.js';
 
 const WORK_TYPE_LABELS: Record<string, string> = {
   ONSITE: 'On-site',
@@ -45,14 +46,18 @@ export function JobDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link to="/candidate/jobs" className="inline-block text-sm text-brand-600 hover:underline">
+      <Link
+        to="/candidate/jobs"
+        className="inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline"
+      >
         ← All roles
       </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-brand-900">{job.title}</h1>
-          <p className="mt-1 text-slate-600">
+          <p className="text-xs font-semibold tracking-widest text-pub-blue uppercase">Open Role</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-brand-900">{job.title}</h1>
+          <p className="mt-1.5 text-slate-600">
             {[job.functionName, job.sectorName].filter(Boolean).join(' · ')}
           </p>
         </div>
@@ -71,15 +76,23 @@ export function JobDetailPage() {
         </Alert>
       )}
 
-      <Card>
+      <Card className={CANDIDATE_CARD}>
         <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Row label="Location" value={[job.cityName, job.state].filter(Boolean).join(', ')} />
+          <Row
+            label={job.additionalLocations.length > 0 ? 'Locations' : 'Location'}
+            value={[
+              [job.cityName, job.state].filter(Boolean).join(', '),
+              ...job.additionalLocations.map((l) => [l.cityName, l.state].filter(Boolean).join(', ')),
+            ]
+              .filter(Boolean)
+              .join('; ')}
+          />
           <Row label="Work type" value={job.workType ? WORK_TYPE_LABELS[job.workType] : null} />
           <Row
             label="Experience"
             value={
               job.minExperience != null && job.maxExperience != null
-                ? `${job.minExperience}–${job.maxExperience} years`
+                ? `${job.minExperience}-${job.maxExperience} years`
                 : null
             }
           />
@@ -93,7 +106,7 @@ export function JobDetailPage() {
 
         {job.requiredSkills.length > 0 && (
           <div className="mt-6 border-t border-slate-100 pt-5">
-            <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+            <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
               What they need
             </p>
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -113,7 +126,7 @@ export function JobDetailPage() {
 
         {job.description && (
           <div className="mt-6 border-t border-slate-100 pt-5">
-            <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+            <p className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
               About the role
             </p>
             <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap text-slate-700">
@@ -129,7 +142,7 @@ export function JobDetailPage() {
         )}
       </Card>
 
-      <Card>
+      <Card className={CANDIDATE_CARD}>
         {job.hasApplied ? (
           <div className="flex flex-wrap items-center justify-between gap-4">
             <p className="text-sm text-slate-600">You&rsquo;ve applied to this role.</p>
@@ -140,9 +153,9 @@ export function JobDetailPage() {
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="font-medium text-brand-900">Ready to apply?</p>
+              <p className="font-semibold text-brand-900">Ready to apply?</p>
               <p className="mt-1 text-sm text-slate-600">
-                Your profile is your application — there&rsquo;s nothing else to fill in. The company
+                Your profile is your application. There&rsquo;s nothing else to fill in. The company
                 is revealed to you once you&rsquo;re shortlisted.
               </p>
             </div>
@@ -159,8 +172,8 @@ export function JobDetailPage() {
 function Row({ label, value }: { label: string; value: string | null | undefined }) {
   return (
     <div>
-      <dt className="text-xs text-slate-500">{label}</dt>
-      <dd className="mt-0.5 text-slate-800">{value || '—'}</dd>
+      <dt className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">{label}</dt>
+      <dd className="mt-1 font-medium text-slate-800">{value || 'Not specified'}</dd>
     </div>
   );
 }

@@ -391,6 +391,8 @@ export function listApplicants(options: {
  */
 export function listForAdmin(options: {
   readonly jobId?: string | undefined;
+  readonly candidateId?: string | undefined;
+  readonly search?: string | undefined;
   readonly stage?: string | undefined;
   readonly limit: number;
   readonly offset: number;
@@ -398,24 +400,43 @@ export function listForAdmin(options: {
   const db = getDb();
   const where: string[] = [];
   const params: unknown[] = [];
+  // Only joined in when a search term is given — every other caller (the
+  // Jobs-page "Show Pipelines" and Candidates-page "Show Pipelines" links)
+  // just filters by id and does not need these joins at all.
+  const joins: string[] = [];
 
   if (options.jobId) {
     where.push('a.job_id = ?');
     params.push(options.jobId);
   }
+  if (options.candidateId) {
+    where.push('a.candidate_profile_id = ?');
+    params.push(options.candidateId);
+  }
   if (options.stage) {
     where.push('a.stage = ?');
     params.push(options.stage);
   }
+  if (options.search) {
+    joins.push('JOIN candidate_profile cp ON cp.id = a.candidate_profile_id');
+    joins.push('JOIN job j ON j.id = a.job_id');
+    joins.push('JOIN employer_profile ep ON ep.id = j.employer_profile_id');
+    where.push(`(cp.full_name LIKE ? ${LIKE} OR j.title LIKE ? ${LIKE} OR ep.company_name LIKE ? ${LIKE})`);
+    const term = likeContains(options.search);
+    params.push(term, term, term);
+  }
+  const joinSql = joins.join(' ');
   const whereSql = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
 
   const total = (
-    db.prepare(`SELECT count(*) AS n FROM application a ${whereSql}`).get(...params) as { n: number }
+    db
+      .prepare(`SELECT count(*) AS n FROM application a ${joinSql} ${whereSql}`)
+      .get(...params) as { n: number }
   ).n;
 
   const rows = db
     .prepare(
-      `SELECT a.* FROM application a ${whereSql}
+      `SELECT a.* FROM application a ${joinSql} ${whereSql}
        ORDER BY a.last_stage_change_at DESC, a.id DESC
        LIMIT ? OFFSET ?`,
     )

@@ -45,7 +45,7 @@ const JOBS = [
       'You will own scale-up and process safety for our API block in Pune. That means leading HAZOP studies, owning the process design basis for products moving from pilot to commercial scale, and working alongside QA and regulatory on documentation for regulated markets. The role reports to the Head of Manufacturing and has two direct reports. We run a modern plant with DCS control throughout and have invested heavily in automation over the last three years. You will be involved from the earliest technology transfer discussions through to commercial production, so this is genuine ownership rather than executing someone else plan. We are looking for someone comfortable presenting to auditors and driving cross-functional projects to completion without close supervision, who enjoys solving problems on the shop floor as much as at a desk.',
   },
   {
-    title: 'Maintenance Engineer — Rotating Equipment',
+    title: 'Maintenance Engineer - Rotating Equipment',
     department: 'Maintenance',
     positions: 1,
     sector: 'industrial-machinery-equipment',
@@ -61,10 +61,10 @@ const JOBS = [
     status: 'APPROVED',
     skills: ['Preventive Maintenance', 'Hydraulics', 'Root Cause Analysis'],
     description:
-      'We are looking for a maintenance engineer to take ownership of rotating equipment across our Coimbatore works — pumps, gearboxes, compressors and the associated drive trains. You will run the planned maintenance schedule, lead breakdown response, and build out the condition monitoring programme we started last year. Roughly forty percent of the role is hands-on and the rest is planning, spares management and working with the production team on availability. We would like someone who is not satisfied with fixing the same failure twice and who will push root cause work through to a permanent fix. There is a clear route into a reliability lead position for the right person, and we support external certification.',
+      'We are looking for a maintenance engineer to take ownership of rotating equipment across our Coimbatore works - pumps, gearboxes, compressors and the associated drive trains. You will run the planned maintenance schedule, lead breakdown response, and build out the condition monitoring programme we started last year. Roughly forty percent of the role is hands-on and the rest is planning, spares management and working with the production team on availability. We would like someone who is not satisfied with fixing the same failure twice and who will push root cause work through to a permanent fix. There is a clear route into a reliability lead position for the right person, and we support external certification.',
   },
   {
-    title: 'Design Engineer — Sheet Metal',
+    title: 'Design Engineer - Sheet Metal',
     department: 'Design',
     positions: 3,
     sector: 'automobile-auto-components',

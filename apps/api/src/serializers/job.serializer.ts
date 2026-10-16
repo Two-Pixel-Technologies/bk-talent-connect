@@ -24,6 +24,8 @@ import { unbrand } from '../db/rows.js';
 
 export type JobSkillView = { readonly id: number; readonly name: string };
 
+export type JobLocationView = { readonly citySlug: string | null; readonly cityName: string | null; readonly state: string };
+
 export type JobRelations = {
   readonly requiredSkills: readonly JobSkillView[];
   readonly goodToHaveSkills: readonly JobSkillView[];
@@ -33,6 +35,8 @@ export type JobRelations = {
   readonly functionName: string | null;
   readonly citySlug: string | null;
   readonly cityName: string | null;
+  /** Hiring locations beyond the primary citySlug/cityName/state above. */
+  readonly additionalLocations: readonly JobLocationView[];
   readonly employerName: string;
   readonly employerProfileId: string;
 };
@@ -52,6 +56,7 @@ function commonFields(row: Row<JobRow>, rel: JobRelations) {
     citySlug: rel.citySlug,
     cityName: rel.cityName,
     state: j.state,
+    additionalLocations: rel.additionalLocations,
     workType: j.work_type as WorkType | null,
     minExperience: j.min_experience,
     maxExperience: j.max_experience,

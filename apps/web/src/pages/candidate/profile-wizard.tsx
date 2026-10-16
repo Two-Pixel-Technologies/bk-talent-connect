@@ -15,8 +15,9 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  EDUCATION_LEVELS,
+  CANDIDATE_EDUCATION_LEVEL_OPTIONS,
   EDUCATION_LABELS,
   EMPLOYMENT_PREFERENCES,
   NOTICE_PERIODS,
@@ -26,6 +27,7 @@ import {
   PROFILE_STEPS,
   formatSalary,
   isMaterialField,
+  type EducationLevel,
   type UpdateProfileInput,
 } from '@bktc/shared';
 import { ApiError } from '../../lib/api-client.js';
@@ -42,6 +44,7 @@ import { diffProfile, draftFromProfile } from '../../features/candidate/profile-
 import { SkillsInput } from '../../components/skills-input.js';
 import { QueryState } from '../../components/query-state.js';
 import { Alert, Badge, Button, Card, Field, Input, Select, Textarea } from '../../components/ui/index.js';
+import { CANDIDATE_CARD } from './candidate-style.js';
 
 type Draft = UpdateProfileInput;
 
@@ -68,23 +71,25 @@ const FIELD_LABELS: Record<string, string> = {
   currentEmployer: 'Current employer',
   yearsOfExperience: 'Years of experience',
   sectorSlug: 'Sector',
+  sectorOther: 'Sector (other)',
   functionSlug: 'Function',
   educationLevel: 'Education level',
+  educationLevelOther: 'Education level (other)',
   qualification: 'Qualification',
   qualificationYear: 'Year of qualification',
   careerSummary: 'Career summary',
   noticePeriod: 'Notice period',
   employmentPreference: 'Employment preference',
-  currentSalaryLpa: 'Current salary',
-  expectedSalaryMinLpa: 'Expected salary (minimum)',
-  expectedSalaryMaxLpa: 'Expected salary (maximum)',
+  currentSalaryLpa: 'Current CTC',
+  expectedSalaryMinLpa: 'Expected CTC',
+  expectedSalaryMaxLpa: 'Expected CTC',
   linkedinUrl: 'LinkedIn',
   skills: 'Skills',
   company: 'Company',
   title: 'Job title',
   startYear: 'Start year',
   endYear: 'End year',
-  keyAchievement: 'Key achievement',
+  keyAchievement: 'Summary of work done',
   // Submit-time checks report on counts and presence rather than the field
   // itself, so these paths only ever appear on the submit error surface.
   skillCount: 'Skills',
@@ -100,12 +105,26 @@ function fieldLabel(path: string): string {
   const label = FIELD_LABELS[leaf] ?? leaf;
 
   if (parts[0] === 'experiences' && parts.length === 3) {
-    return `Role ${Number(parts[1]) + 1} — ${label}: `;
+    return `Role ${Number(parts[1]) + 1}: ${label}: `;
   }
   return `${label}: `;
 }
 
+/**
+ * The reduced five-option list, plus the candidate's own current value if it
+ * is one of the legacy four (BE/BTECH/MTECH/MBA) that this list no longer
+ * offers for a fresh pick. Without the fallback, reopening an older profile
+ * would show the select blank even though a real value is saved — the native
+ * control only renders the selection it has a matching <option> for.
+ */
+function educationLevelOptions(current: Draft['educationLevel'] | undefined): readonly EducationLevel[] {
+  const reduced = CANDIDATE_EDUCATION_LEVEL_OPTIONS as readonly EducationLevel[];
+  if (current && !reduced.includes(current)) return [current, ...reduced];
+  return reduced;
+}
+
 export function ProfileWizardPage() {
+  const navigate = useNavigate();
   const { data: profile, isPending, error: loadError, refetch } = useProfile();
   const { data: taxonomy } = useTaxonomy();
   const update = useUpdateProfile();
@@ -115,6 +134,7 @@ export function ProfileWizardPage() {
   const errorRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<Draft>({});
   const [confirmMaterial, setConfirmMaterial] = useState<string[] | null>(null);
+  const [confirmingSubmit, setConfirmingSubmit] = useState(false);
 
   // Seed the draft once the profile arrives. Keyed on id so a refetch after a
   // save does not discard edits the candidate is part-way through typing.
@@ -198,14 +218,15 @@ export function ProfileWizardPage() {
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-brand-900">Your profile</h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="text-xs font-semibold tracking-widest text-pub-blue uppercase">Candidate Profile</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-brand-900">Your profile</h1>
+          <p className="mt-1.5 text-sm text-slate-600">
             This is what our team reviews, and what employers see once you apply.
           </p>
         </div>
         <div className="sm:text-right">
-          <p className="text-sm font-medium text-slate-700">{profile.completionPercent}% complete</p>
-          <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-200 sm:w-40">
+          <p className="text-sm font-semibold text-slate-700">{profile.completionPercent}% complete</p>
+          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 sm:w-40">
             <div
               className="h-full rounded-full bg-brand-600 transition-all"
               style={{ width: `${profile.completionPercent}%` }}
@@ -245,7 +266,7 @@ export function ProfileWizardPage() {
           <p>
             You&rsquo;ve changed {confirmMaterial.join(', ')}. Because our team already approved your
             profile, saving this puts it back into review and pauses job browsing until we approve
-            it again — usually within a day.
+            it again, usually within a day.
           </p>
           <div className="mt-3 flex gap-2">
             <Button onClick={() => void save()} loading={update.isPending}>
@@ -258,7 +279,36 @@ export function ProfileWizardPage() {
         </Alert>
       )}
 
-      <Card>
+      {confirmingSubmit && (
+        <Alert tone="warning" title="Submit your profile for review?">
+          <p>
+            Our team will review it, usually within a day. Your profile locks against further
+            edits until that review is done.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <Button
+              onClick={async () => {
+                if (await save()) {
+                  submit.mutate(undefined, {
+                    onSuccess: () => {
+                      setConfirmingSubmit(false);
+                      navigate('/candidate');
+                    },
+                  });
+                }
+              }}
+              loading={submit.isPending || update.isPending}
+            >
+              Submit for review
+            </Button>
+            <Button variant="secondary" onClick={() => setConfirmingSubmit(false)}>
+              Cancel
+            </Button>
+          </div>
+        </Alert>
+      )}
+
+      <Card className={CANDIDATE_CARD}>
         <fieldset disabled={locked} className="space-y-5">
           {locked && (
             <p className="text-sm text-slate-500">
@@ -299,12 +349,7 @@ export function ProfileWizardPage() {
             ) : (
               !locked &&
               !approved && (
-                <Button
-                  onClick={async () => {
-                    if (await save()) submit.mutate();
-                  }}
-                  loading={submit.isPending || update.isPending}
-                >
+                <Button onClick={() => setConfirmingSubmit(true)} loading={submit.isPending || update.isPending}>
                   Submit for review
                 </Button>
               )
@@ -368,7 +413,7 @@ function StatusBanner({ profile }: { profile: CandidateProfile }) {
 function Stepper({ current, onSelect }: { current: number; onSelect: (i: number) => void }) {
   return (
     <nav aria-label="Profile steps">
-      <ol className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
+      <ol className="flex touch-pan-x gap-2.5 overflow-x-auto overscroll-x-contain px-1 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-visible">
         {PROFILE_STEPS.map((step, index) => {
           const active = index === current;
           return (
@@ -377,8 +422,10 @@ function Stepper({ current, onSelect }: { current: number; onSelect: (i: number)
                 type="button"
                 onClick={() => onSelect(index)}
                 aria-current={active ? 'step' : undefined}
-                className={`min-h-11 shrink-0 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
-                  active ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'
+                className={`min-h-11 shrink-0 rounded-lg border px-3 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
+                  active
+                    ? 'border-brand-600 bg-brand-600 text-white shadow-sm shadow-brand-900/10'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 <span className="mr-1.5 opacity-60">{index + 1}</span>
@@ -463,7 +510,7 @@ function BasicStep({ draft, set, taxonomy }: StepProps) {
             disabled={!selectedState}
             onChange={(e) => set('citySlug', e.target.value)}
           >
-            <option value="">{selectedState ? 'Select a city' : '—'}</option>
+            <option value="">{selectedState ? 'Select a city' : 'Select a state first'}</option>
             {citiesForState.map((c) => (
               <option key={c.slug} value={c.slug}>{c.name}</option>
             ))}
@@ -471,12 +518,26 @@ function BasicStep({ draft, set, taxonomy }: StepProps) {
         </Field>
       </div>
 
-      <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <label
+        className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
+          draft.openToRelocation
+            ? 'border-brand-200 bg-brand-50/70'
+            : 'border-slate-200 bg-slate-50 hover:bg-slate-100/70'
+        }`}
+      >
+        {/*
+          * The shared input reset (styles.css) applies appearance-none to
+          * every input/select/textarea for Safari's rounded-input quirk,
+          * which also stripped this checkbox's native box and tick with
+          * nothing put back in its place — it worked, it just had no visible
+          * control. appearance-auto restores it here, scoped to this one
+          * checkbox rather than touching the shared reset.
+          */}
         <input
           type="checkbox"
           checked={draft.openToRelocation ?? false}
           onChange={(e) => set('openToRelocation', e.target.checked)}
-          className="mt-0.5 size-4 rounded border-slate-300"
+          className="mt-0.5 size-4 shrink-0 appearance-auto rounded border-slate-300 accent-brand-600"
         />
         <span className="text-sm text-slate-700">
           I&rsquo;m open to relocating
@@ -501,7 +562,7 @@ function ProfessionalStep({ draft, set, taxonomy, locked }: StepProps) {
         </Field>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Years of experience" htmlFor="yearsOfExperience" required>
           <Input
             id="yearsOfExperience"
@@ -513,37 +574,71 @@ function ProfessionalStep({ draft, set, taxonomy, locked }: StepProps) {
             onChange={(e) => set('yearsOfExperience', e.target.value === '' ? undefined : Number(e.target.value))}
           />
         </Field>
-        <Field label="Sector" htmlFor="sectorSlug" required hint="The industry you work in">
-          <Select id="sectorSlug" value={draft.sectorSlug ?? ''} onChange={(e) => set('sectorSlug', e.target.value)}>
+        {/*
+          * No separate hint line here, same reasoning as Qualification above
+          * — folded into the label instead so it doesn't push this field out
+          * of line with "Years of experience" beside it.
+          */}
+        <Field label="Sector (industry and professional area)" htmlFor="sectorSlug" required>
+          <Select
+            id="sectorSlug"
+            value={draft.sectorSlug ?? ''}
+            onChange={(e) => {
+              const next = e.target.value;
+              set('sectorSlug', next);
+              // The backend clears the stored custom text whenever sectorSlug
+              // moves away from 'other' too (candidate.service.ts toColumns) —
+              // this just keeps the draft from showing stale text if the
+              // candidate flips back to Other a moment later.
+              if (next !== 'other') set('sectorOther', '');
+            }}
+          >
             <option value="">Select a sector</option>
             {taxonomy?.sectors.map((s) => (
               <option key={s.slug} value={s.slug}>{s.name}</option>
             ))}
           </Select>
         </Field>
-        <Field label="Function" htmlFor="functionSlug" required hint="What you do within it">
-          <Select id="functionSlug" value={draft.functionSlug ?? ''} onChange={(e) => set('functionSlug', e.target.value)}>
-            <option value="">Select a function</option>
-            {taxonomy?.functions.map((f) => (
-              <option key={f.slug} value={f.slug}>{f.name}</option>
-            ))}
-          </Select>
-        </Field>
       </div>
+
+      {draft.sectorSlug === 'other' && (
+        <Field label="Tell us your sector" htmlFor="sectorOther" required hint="A short name is enough">
+          <Input
+            id="sectorOther"
+            value={draft.sectorOther ?? ''}
+            onChange={(e) => set('sectorOther', e.target.value)}
+          />
+        </Field>
+      )}
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="Education level" htmlFor="educationLevel" required>
-          <Select id="educationLevel" value={draft.educationLevel ?? ''} onChange={(e) => set('educationLevel', e.target.value as Draft['educationLevel'])}>
+          <Select
+            id="educationLevel"
+            value={draft.educationLevel ?? ''}
+            onChange={(e) => {
+              const next = e.target.value as Draft['educationLevel'];
+              set('educationLevel', next);
+              if (next !== 'OTHER') set('educationLevelOther', '');
+            }}
+          >
             <option value="">Select</option>
-            {EDUCATION_LEVELS.map((level) => (
+            {educationLevelOptions(draft.educationLevel).map((level) => (
               <option key={level} value={level}>{EDUCATION_LABELS[level]}</option>
             ))}
           </Select>
         </Field>
-        <Field label="Qualification" htmlFor="qualification" required hint="Degree and specialisation">
+        {/*
+          * No separate hint line here on purpose — Field renders hint between
+          * the label and the control, so a hint on this field alone (its
+          * neighbours have none) pushed just this input down and broke the
+          * row's alignment. Folded into the label instead, which keeps every
+          * input in the row starting at the same height.
+          */}
+        <Field label="Qualification (degree & specialisation)" htmlFor="qualification" required>
           <Input id="qualification" value={draft.qualification ?? ''} onChange={(e) => set('qualification', e.target.value)} />
         </Field>
-        <Field label="Year" htmlFor="qualificationYear" required>
+        <Field label="Year of Qualification" htmlFor="qualificationYear" required>
           <Input
             id="qualificationYear"
             type="number"
@@ -554,11 +649,22 @@ function ProfessionalStep({ draft, set, taxonomy, locked }: StepProps) {
         </Field>
       </div>
 
+      {draft.educationLevel === 'OTHER' && (
+        <Field label="Tell us your qualification level" htmlFor="educationLevelOther" required>
+          <Input
+            id="educationLevelOther"
+            value={draft.educationLevelOther ?? ''}
+            onChange={(e) => set('educationLevelOther', e.target.value)}
+          />
+        </Field>
+      )}
+
       <Field label="Skills" htmlFor="skills" required hint="The tools, standards and techniques you actually use">
         <SkillsInput
           value={draft.skills ?? []}
           onChange={(skills) => set('skills', skills)}
           disabled={locked ?? false}
+          suggestions={false}
         />
       </Field>
     </>
@@ -602,6 +708,12 @@ function HistoryStep({ draft, set }: StepProps) {
             </Field>
           </div>
 
+          {/*
+            * "To (year)" used to carry its disabled-reason as a Field hint,
+            * which (unlike its two row-mates) pushed just that one input down
+            * and visibly knocked it out of line with "From (year)". Moved
+            * below the row instead, same fix as Qualification above.
+            */}
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="From (year)" htmlFor={`start-${index}`} required>
               <Input id={`start-${index}`} type="number" min={1960} value={exp.startYear} onChange={(e) => update(index, { startYear: Number(e.target.value) })} />
@@ -614,22 +726,50 @@ function HistoryStep({ draft, set }: StepProps) {
                 disabled={exp.isCurrent}
                 value={exp.endYear ?? ''}
                 onChange={(e) => update(index, { endYear: e.target.value === '' ? null : Number(e.target.value) })}
+                className={exp.isCurrent ? 'cursor-not-allowed' : ''}
               />
             </Field>
-            <label className="flex min-h-11 items-center gap-2.5 text-sm text-slate-700 sm:self-end sm:pb-2.5">
+            {/*
+              * Styled like the "open to relocating" control elsewhere in this
+              * wizard (bordered box, brand highlight when checked) rather than
+              * a bare checkbox — this one decides whether To Year is even
+              * usable, so it needs to read as a real, deliberate control.
+              */}
+            <label
+              className={`flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg border px-3 text-sm font-medium transition-colors sm:self-end ${
+                exp.isCurrent
+                  ? 'border-brand-200 bg-brand-50/70 text-brand-800'
+                  : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100/70'
+              }`}
+            >
               <input
                 type="checkbox"
                 checked={exp.isCurrent}
                 onChange={(e) => update(index, { isCurrent: e.target.checked, endYear: e.target.checked ? null : exp.endYear })}
-                className="size-4 rounded border-slate-300"
+                className="size-4 shrink-0 appearance-auto rounded border-slate-300 accent-brand-600"
               />
               Current role
             </label>
           </div>
+          {exp.isCurrent && (
+            <p className="mt-1.5 text-xs text-slate-500">
+              To (year) isn&rsquo;t needed — marked as your current role.
+            </p>
+          )}
 
           <div className="mt-4">
-            <Field label="Key achievement" htmlFor={`ach-${index}`} hint="One line. Numbers help.">
-              <Input id={`ach-${index}`} value={exp.keyAchievement ?? ''} onChange={(e) => update(index, { keyAchievement: e.target.value })} />
+            <Field
+              label="Summary of Work Done"
+              htmlFor={`ach-${index}`}
+              hint="What you owned, built or delivered in this role. Numbers help."
+            >
+              <Textarea
+                id={`ach-${index}`}
+                rows={3}
+                maxLength={LIMITS.candidate.keyAchievement.max}
+                value={exp.keyAchievement ?? ''}
+                onChange={(e) => update(index, { keyAchievement: e.target.value })}
+              />
             </Field>
           </div>
 
@@ -644,7 +784,7 @@ function HistoryStep({ draft, set }: StepProps) {
             <Field
               label="What did you work on?"
               htmlFor={`domains-${index}`}
-              hint="Comma-separated — e.g. rotating equipment, HAZOP, tech transfer"
+              hint="Comma-separated, e.g. rotating equipment, HAZOP, tech transfer"
             >
               <Input
                 id={`domains-${index}`}
@@ -745,10 +885,24 @@ function SalaryStep({ draft, set, profile }: StepProps) {
         never appear on any job application.
       </Alert>
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-2">
         <SalaryField label="Current CTC" id="currentSalaryLpa" value={draft.currentSalaryLpa} onChange={(v) => set('currentSalaryLpa', v)} />
-        <SalaryField label="Expected minimum" id="expectedSalaryMinLpa" value={draft.expectedSalaryMinLpa} onChange={(v) => set('expectedSalaryMinLpa', v)} />
-        <SalaryField label="Expected maximum" id="expectedSalaryMaxLpa" value={draft.expectedSalaryMaxLpa} onChange={(v) => set('expectedSalaryMaxLpa', v)} />
+        {/*
+          * One field for the candidate; the API underneath still carries a
+          * min and a max (every other consumer — admin salary comparison,
+          * the submit contract — reads both). Setting them to the same value
+          * is the smallest safe way to do that: nothing downstream changes,
+          * and "expects 14 LPA" is exactly what a single figure means.
+          */}
+        <SalaryField
+          label="Expected CTC"
+          id="expectedCtcLpa"
+          value={draft.expectedSalaryMinLpa}
+          onChange={(v) => {
+            set('expectedSalaryMinLpa', v);
+            set('expectedSalaryMaxLpa', v);
+          }}
+        />
       </div>
 
       <div className="border-t border-slate-100 pt-5">

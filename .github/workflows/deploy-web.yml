@@ -1,0 +1,65 @@
+name: Deploy Web to GitHub Pages
+
+# Frontend-only deploy: builds and publishes apps/web as a static site.
+# Does not touch apps/api, does not run migrations/seeds, and does not
+# require any secrets beyond the default GITHUB_TOKEN.
+on:
+  push:
+    branches: [iteration-2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deployment at a time; a newer push supersedes one in flight.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # apps/web depends on @bktc/shared's build output (types + emitted JS)
+      # via a TS project reference — mirrors the order in the root "build"
+      # script, minus @bktc/api, which this workflow never builds or deploys.
+      - name: Build shared package
+        run: npm run build --workspace=@bktc/shared
+
+      - name: Build web
+        run: npm run build --workspace=@bktc/web
+        env:
+          # Must match the repo name: GitHub Pages serves a project page at
+          # https://<owner>.github.io/<repo>/, so every asset URL needs that
+          # prefix. See vite.config.ts and src/router.tsx.
+          VITE_BASE_PATH: /bk-talent-connect/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

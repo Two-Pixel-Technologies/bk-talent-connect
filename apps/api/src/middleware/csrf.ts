@@ -23,6 +23,26 @@ import { forbidden } from '../lib/errors.js';
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+/**
+ * Outside production, `localhost` and `127.0.0.1` are the same dev machine
+ * on the same Vite port, but the browser treats them as different origins
+ * (Origin comparison is string-based, not IP-based). Vite's dev server binds
+ * `127.0.0.1` explicitly (see apps/web/vite.config.ts), while APP_ORIGIN
+ * defaults to `http://localhost:5173` — so a developer who opens whichever
+ * one Vite prints, or types the other from habit, gets a false-positive
+ * "Cross-origin request blocked." on login even though both are the same
+ * local dev server. Accepting both loopback spellings of the configured dev
+ * port only ever widens matching in non-production; production keeps the
+ * original single-origin equality check untouched.
+ */
+const DEV_ORIGIN_ALIASES = env.isProduction
+  ? new Set<string>()
+  : new Set(
+      [env.APP_ORIGIN, ...(env.APP_ORIGIN.match(/^(https?:\/\/)(localhost|127\.0\.0\.1)(:\d+)?$/)
+        ? [env.APP_ORIGIN.replace('localhost', '127.0.0.1'), env.APP_ORIGIN.replace('127.0.0.1', 'localhost')]
+        : [])],
+    );
+
 export const csrfGuard: RequestHandler = (req, _res, next) => {
   if (!UNSAFE_METHODS.has(req.method)) return next();
 
@@ -32,7 +52,8 @@ export const csrfGuard: RequestHandler = (req, _res, next) => {
   }
 
   const origin = req.get('origin');
-  if (origin && origin !== env.APP_ORIGIN) {
+  const originAllowed = !origin || origin === env.APP_ORIGIN || DEV_ORIGIN_ALIASES.has(origin);
+  if (!originAllowed) {
     return next(forbidden('Cross-origin request blocked.'));
   }
 

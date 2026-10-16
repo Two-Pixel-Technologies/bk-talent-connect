@@ -31,6 +31,7 @@ export type EmployerJob = {
   functionName: string | null;
   citySlug: string | null;
   cityName: string | null;
+  additionalLocations: { citySlug: string | null; cityName: string | null; state: string }[];
   state: string | null;
   workType: string | null;
   minExperience: number | null;
@@ -128,6 +129,24 @@ export function useEmployerJob(id: string | undefined) {
     queryKey: ['employer', 'job', id],
     queryFn: () => api.get<EmployerJob>(`/employer/jobs/${id}`),
     enabled: Boolean(id),
+  });
+}
+
+/**
+ * How many people have applied to one posting, for a job-list card.
+ *
+ * There is no dedicated count endpoint — this reuses the existing applicant
+ * list with pageSize 1 purely to read its real `total`, rather than adding a
+ * new API. Fine at the scale this list already assumes (postings are shown a
+ * handful at a time, not hundreds).
+ */
+export function useApplicantCount(jobId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['employer', 'applicant-count', jobId],
+    queryFn: () =>
+      api.get<{ total: number }>(`/employer/jobs/${jobId}/applications?pageSize=1`),
+    enabled,
+    staleTime: 60_000,
   });
 }
 
@@ -238,6 +257,50 @@ export function useConfirmEmployerInterview() {
       api.post<{ interview: EmployerInterview }>(
         `/employer/applications/${applicationId}/interview/confirm`,
       ),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employer'] }),
+  });
+}
+
+/**
+ * Booking the interview directly — previously admin-only, now the
+ * employer's own action (see stages.ts). The stage moves with the booking,
+ * so the whole 'employer' tree is invalidated, same as every other stage
+ * change here.
+ */
+export function useScheduleEmployerInterview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      applicationId: string;
+      scheduledAt: string;
+      durationMinutes: number;
+      mode: 'PHONE' | 'VIDEO' | 'ONSITE';
+      locationOrLink: string;
+      instructions?: string;
+    }) => {
+      const { applicationId, ...body } = input;
+      return api.post<{ interview: EmployerInterview; rescheduled: boolean }>(
+        `/employer/applications/${applicationId}/interview`,
+        body,
+      );
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employer'] }),
+  });
+}
+
+export function useCancelEmployerInterview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (interviewId: string) => api.post<void>(`/employer/interviews/${interviewId}/cancel`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employer'] }),
+  });
+}
+
+/** Marks the interview held and advances the application to INTERVIEWED. */
+export function useCompleteEmployerInterview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (interviewId: string) => api.post<void>(`/employer/interviews/${interviewId}/complete`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employer'] }),
   });
 }

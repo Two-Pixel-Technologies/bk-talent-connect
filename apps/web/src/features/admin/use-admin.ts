@@ -21,8 +21,12 @@ export type AdminCandidate = {
   currentEmployer: string | null;
   yearsOfExperience: number | null;
   sectorName: string | null;
+  /** The candidate's own typed text when sectorName resolved to the taxonomy's "Other" row. */
+  sectorOther: string | null;
   functionName: string | null;
   educationLevel: string | null;
+  /** The candidate's own typed text when educationLevel is 'OTHER'. */
+  educationLevelOther: string | null;
   qualification: string | null;
   careerSummary: string | null;
   noticePeriod: string | null;
@@ -80,6 +84,7 @@ export type AdminJob = {
   functionName: string | null;
   cityName: string | null;
   state: string | null;
+  additionalLocations: { citySlug: string | null; cityName: string | null; state: string }[];
   workType: string | null;
   minExperience: number | null;
   maxExperience: number | null;

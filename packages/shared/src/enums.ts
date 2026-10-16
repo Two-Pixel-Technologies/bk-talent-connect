@@ -27,6 +27,26 @@ export const REVIEW_STATUSES = [
 ] as const;
 export type ReviewStatus = (typeof REVIEW_STATUSES)[number];
 
+/**
+ * Admin list priority order, per the product requirement: review queues should
+ * surface what needs a decision first, then what's already resolved, with
+ * rejected work sinking to the bottom. "Awaiting review" collapses the two
+ * differently-named pending statuses (SUBMITTED for candidates/employers,
+ * PENDING_APPROVAL for jobs) into the same rank 1, since the source requirement
+ * named them as one tier, not two.
+ *
+ * A status not listed here (a future addition) falls back to UNKNOWN_STATUS_PRIORITY
+ * so it stays visible and sorts deterministically last, rather than disappearing
+ * or crashing the ORDER BY.
+ */
+export const REVIEW_STATUS_PRIORITY: Record<ReviewStatus, number> = {
+  SUBMITTED: 1,
+  APPROVED: 2,
+  CHANGES_REQUESTED: 3,
+  DRAFT: 4,
+  REJECTED: 5,
+};
+
 export const JOB_STATUSES = [
   'DRAFT',
   'PENDING_APPROVAL',
@@ -37,6 +57,20 @@ export const JOB_STATUSES = [
   'FILLED',
 ] as const;
 export type JobStatus = (typeof JOB_STATUSES)[number];
+
+/** Same ranking idea as REVIEW_STATUS_PRIORITY, for the job-posting queue's own status set. */
+export const JOB_STATUS_PRIORITY: Record<JobStatus, number> = {
+  PENDING_APPROVAL: 1,
+  APPROVED: 2,
+  CHANGES_REQUESTED: 3,
+  DRAFT: 4,
+  REJECTED: 5,
+  CLOSED: 6,
+  FILLED: 6,
+};
+
+/** Fallback rank for any status value absent from the priority map above. */
+export const UNKNOWN_STATUS_PRIORITY = 99;
 
 /** Job statuses that are publicly visible. Used by every public/candidate query. */
 export const PUBLICLY_VISIBLE_JOB_STATUSES = ['APPROVED'] as const satisfies readonly JobStatus[];
@@ -55,9 +89,38 @@ export const NOTICE_PERIOD_LABELS: Record<NoticePeriod, string> = {
   D90: '90 days',
 };
 
-/** Candidate's own highest qualification. Superset of the job requirement list. */
-export const EDUCATION_LEVELS = ['DIPLOMA', 'BE', 'BTECH', 'MTECH', 'MBA', 'PHD'] as const;
+/**
+ * Candidate's own highest qualification. Superset of the job requirement list.
+ *
+ * DEGREE/POSTGRADUATE/OTHER were added alongside BE/BTECH/MTECH/MBA rather
+ * than instead of them: BE and BTECH already ranked identically in
+ * EDUCATION_RANK below, as did MTECH and MBA, so DEGREE/POSTGRADUATE are not
+ * new concepts — they are what the candidate-facing form now calls that same
+ * rank, via CANDIDATE_EDUCATION_LEVEL_OPTIONS. The legacy four stay valid so
+ * every already-saved profile keeps reading correctly; new candidate
+ * submissions use the five-option list instead.
+ */
+export const EDUCATION_LEVELS = [
+  'DIPLOMA',
+  'BE',
+  'BTECH',
+  'MTECH',
+  'MBA',
+  'PHD',
+  'DEGREE',
+  'POSTGRADUATE',
+  'OTHER',
+] as const;
 export type EducationLevel = (typeof EDUCATION_LEVELS)[number];
+
+/** The reduced list the candidate profile form actually offers for a new selection. */
+export const CANDIDATE_EDUCATION_LEVEL_OPTIONS = [
+  'DIPLOMA',
+  'DEGREE',
+  'POSTGRADUATE',
+  'PHD',
+  'OTHER',
+] as const;
 
 /** What a job asks for. Includes ANY; excludes MBA/PHD per Proposal p5. */
 export const EDUCATION_REQUIREMENTS = ['ANY', 'DIPLOMA', 'BE', 'BTECH', 'MTECH'] as const;
@@ -70,7 +133,10 @@ export const EDUCATION_LABELS: Record<EducationLevel | 'ANY', string> = {
   BTECH: 'B.Tech',
   MTECH: 'M.Tech',
   MBA: 'MBA',
-  PHD: 'PhD',
+  PHD: 'Doctorate',
+  DEGREE: 'Degree',
+  POSTGRADUATE: 'Postgraduate',
+  OTHER: 'Other',
 };
 
 /**
@@ -82,9 +148,12 @@ const EDUCATION_RANK: Record<EducationLevel, number> = {
   DIPLOMA: 1,
   BE: 2,
   BTECH: 2,
+  DEGREE: 2,
   MTECH: 3,
   MBA: 3,
+  POSTGRADUATE: 3,
   PHD: 4,
+  OTHER: 1,
 };
 
 export function educationSatisfies(

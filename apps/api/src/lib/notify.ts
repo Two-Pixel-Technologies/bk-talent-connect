@@ -16,12 +16,16 @@
 
 import {
   recipientsFor,
+  channelsFor,
   type NotificationEntityType,
   type NotificationEvent,
   type Role,
 } from '@bktc/shared';
 import * as notificationRepo from '../repositories/notification.repo.js';
+import * as notificationDeliveryRepo from '../repositories/notification-delivery.repo.js';
 import * as userRepo from '../repositories/user.repo.js';
+import { resolveContact } from './recipient-contact.js';
+import { getEmailTransport, getWhatsAppTransport } from './channels.js';
 import { logger } from './logger.js';
 
 export interface NotificationCopy {
@@ -115,23 +119,134 @@ function resolveRecipients(input: NotifyInput): Recipient[] {
 }
 
 /**
- * Writes one row per recipient.
+ * Writes one row per recipient — only when the event's channel list (the
+ * p8 table's "Channels" column, see NOTIFICATION_MATRIX) includes PORTAL.
+ * INTERVIEW_REMINDER is the one event where it does not: the proposal lists
+ * Email + WhatsApp only for that row, so no bell entry is written for it.
  *
  * Called inside the caller's transaction where there is one, so a notification
  * about a stage change cannot survive a rolled-back stage change.
  */
 export function notify(input: NotifyInput): string[] {
-  return resolveRecipients(input).map(({ userId, role }) => {
-    const copy = input.perRole?.[role] ?? { title: input.title, body: input.body };
-    return notificationRepo.create({
-      userId,
-      event: input.event,
-      title: copy.title,
-      body: copy.body,
-      entityType: input.entityType,
-      entityId: input.entityId,
+  const recipients = resolveRecipients(input);
+  const channels = channelsFor(input.event);
+
+  const ids = channels.includes('PORTAL')
+    ? recipients.map(({ userId, role }) => {
+        const copy = input.perRole?.[role] ?? { title: input.title, body: input.body };
+        return notificationRepo.create({
+          userId,
+          event: input.event,
+          title: copy.title,
+          body: copy.body,
+          entityType: input.entityType,
+          entityId: input.entityId,
+        });
+      })
+    : [];
+
+  dispatchChannels(input, recipients, channels);
+  return ids;
+}
+
+/**
+ * Fires email/WhatsApp sends for whichever of those two channels the event
+ * declares, for every resolved recipient.
+ *
+ * Deferred with setImmediate so it runs after the current synchronous call
+ * stack — including the DB transaction notify() was called inside — has
+ * finished, rather than doing any I/O (even the logging transport's) while
+ * better-sqlite3 holds a transaction open. A failure in one recipient's
+ * channel send is caught and recorded, never thrown back into the caller:
+ * email/WhatsApp are secondary to the fact that something happened, which is
+ * already durably recorded in the database by the time this runs.
+ */
+/**
+ * Every dispatchChannels() call chains onto this, so tests (and nothing
+ * else — production never awaits it) can call `notificationDispatchSettled()`
+ * after triggering an action to deterministically wait for the deferred
+ * email/WhatsApp sends to finish, instead of guessing at a setTimeout delay.
+ */
+let dispatchTail: Promise<void> = Promise.resolve();
+
+export function notificationDispatchSettled(): Promise<void> {
+  return dispatchTail;
+}
+
+function dispatchChannels(
+  input: NotifyInput,
+  recipients: readonly { userId: string; role: Role }[],
+  channels: readonly ('PORTAL' | 'EMAIL' | 'WHATSAPP')[],
+): void {
+  const wantsEmail = channels.includes('EMAIL');
+  const wantsWhatsApp = channels.includes('WHATSAPP');
+  if (!wantsEmail && !wantsWhatsApp) return;
+
+  const work = new Promise<void>((resolve) => {
+    setImmediate(() => {
+      const sends: Promise<void>[] = [];
+      for (const { userId, role } of recipients) {
+        const copy = input.perRole?.[role] ?? { title: input.title, body: input.body };
+        const contact = resolveContact(userId, role);
+
+        if (wantsEmail) sends.push(sendEmailChannel(input.event, userId, contact.email, copy));
+        if (wantsWhatsApp) sends.push(sendWhatsAppChannel(input.event, userId, contact.mobile, copy));
+      }
+      void Promise.allSettled(sends).then(() => resolve());
     });
   });
+
+  dispatchTail = dispatchTail.then(() => work);
+}
+
+async function sendEmailChannel(
+  event: NotificationEvent,
+  userId: string,
+  email: string | null,
+  copy: NotificationCopy,
+): Promise<void> {
+  if (!email) {
+    notificationDeliveryRepo.record({ event, channel: 'EMAIL', userId, status: 'SKIPPED', detail: 'no email on file' });
+    return;
+  }
+  try {
+    await getEmailTransport().send({ to: email, subject: copy.title, body: copy.body ?? copy.title });
+    notificationDeliveryRepo.record({ event, channel: 'EMAIL', userId, status: 'SENT' });
+  } catch (error) {
+    logger.error({ err: error, event, channel: 'EMAIL' }, 'email dispatch failed');
+    notificationDeliveryRepo.record({
+      event,
+      channel: 'EMAIL',
+      userId,
+      status: 'FAILED',
+      detail: error instanceof Error ? error.message : 'unknown error',
+    });
+  }
+}
+
+async function sendWhatsAppChannel(
+  event: NotificationEvent,
+  userId: string,
+  mobile: string | null,
+  copy: NotificationCopy,
+): Promise<void> {
+  if (!mobile) {
+    notificationDeliveryRepo.record({ event, channel: 'WHATSAPP', userId, status: 'SKIPPED', detail: 'no mobile number on file' });
+    return;
+  }
+  try {
+    await getWhatsAppTransport().send({ to: mobile, body: copy.body ? `${copy.title} — ${copy.body}` : copy.title });
+    notificationDeliveryRepo.record({ event, channel: 'WHATSAPP', userId, status: 'SENT' });
+  } catch (error) {
+    logger.error({ err: error, event, channel: 'WHATSAPP' }, 'WhatsApp dispatch failed');
+    notificationDeliveryRepo.record({
+      event,
+      channel: 'WHATSAPP',
+      userId,
+      status: 'FAILED',
+      detail: error instanceof Error ? error.message : 'unknown error',
+    });
+  }
 }
 
 /**

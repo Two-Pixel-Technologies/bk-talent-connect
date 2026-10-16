@@ -8,8 +8,33 @@
       name="description"
       content="A managed recruitment portal connecting technical professionals with hiring companies across India's industrial sectors."
     />
+    <!-- Public-site typography only (Manrope/Inter). The authenticated portal
+         keeps the system font stack in styles.css untouched. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
+    <!--
+      Pairs with public/404.html: decodes the query-string-encoded path that
+      GitHub Pages' 404 fallback redirects to, back into a real pathname,
+      before the SPA router reads the URL. No-op everywhere else (local dev,
+      the existing nginx/prod deploy) since the query string it looks for is
+      never present outside that redirect.
+    -->
+    <script>
+      (function (l) {
+        if (l.search[1] === '/') {
+          var decoded = l.search.slice(1).split('&').map(function (s) {
+            return s.replace(/~and~/g, '&');
+          }).join('?');
+          window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash);
+        }
+      })(window.location);
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
